@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from typing import Set, Tuple, Union, Optional
+from typing import Dict, Set, Tuple, Union, Optional
 from .modules import *
+from .xai.method_configs import MethodConfig, METHOD_CONFIGS
 
 class PatchEmbed(nn.Module):
     """
@@ -63,6 +64,37 @@ class Attention(nn.Module):
         self.proj_drop = Dropout(proj_drop)
         self.softmax = Softmax(dim=-1)
 
+        self._do_cache_weights: bool = False
+        self._do_cache_gradients: bool = False
+        self._attn_weights: List[torch.Tensor] = [] 
+        self._attn_gradients: List[torch.Tensor] = []
+        self._attn_relevance: List[torch.Tensor] = []
+
+    def apply_config(self, cfg: MethodConfig) -> None:
+        self._do_cache_weights = cfg.cache_attn_weights
+        self._do_cache_gradients = cfg.cache_attn_gradients
+        self.clear_cache()
+
+    def clear_cache(self) -> None:
+        self._attn_weights.clear()
+        self._attn_gradients.clear()
+        self._attn_relevance.clear()
+
+    def get_attn_weights(self) -> List[torch.Tensor]:
+        out = list(self._attn_weights)
+        self._attn_weights.clear()
+        return out
+ 
+    def get_attn_gradients(self) -> List[torch.Tensor]:
+        out = list(self._attn_gradients)
+        self._attn_gradients.clear()
+        return out
+    
+    def get_attn_relevance(self) -> torch.Tensor:
+        out = list(self._attn_relevance)
+        self._attn_relevance.clear()
+        return out
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N, C = x.shape
         #Project to Q, K, V and reshape for multi-head processing: [3, B, num_heads, N, head_dim]
@@ -72,6 +104,13 @@ class Attention(nn.Module):
         # Calculate scaled dot-product attention
         attn = self.matmul1([q, k.transpose(-2, -1)]) * self.scale
         attn = self.softmax(attn)
+
+        if self._do_cache_weights:
+            self._attn_weights.append(attn.detach())
+        
+        if self._do_cache_gradients:
+            attn.register_hook(lambda grad: self._attn_gradients.append(grad.detach()))
+
         attn = self.attn_drop(attn)
 
         # Concatenate heads and project back to original dim
@@ -91,10 +130,11 @@ class Attention(nn.Module):
 
         R_A = self.attn_drop.relprop(R_A, **kwargs)
         R_A = self.softmax.relprop(R_A, **kwargs)
+        self._attn_relevance.append(R_A.detach())
 
         # A = Q @ K.T
         (R_Q, R_K) = self.matmul1.relprop(R_A, **kwargs)
-        R_K = R_K.transpose(-2, -1) / 2
+        R_K = R_K.transpose(-2, -1)
 
         R = torch.stack([R_Q, R_K, R_V], dim = 0).permute(1, 3, 0, 2, 4)
         R = torch.flatten(R, start_dim = 2)
@@ -165,10 +205,6 @@ class Block(nn.Module):
         self.clone2 = Clone()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x:       [B, num_patches + 1, dim] - input tensor (including class token)
-        returns: [B, num_patches + 1, dim] - output tensor after transformer blocks
-        """
         x1, x2 = self.clone1(x, 2)
         x = self.add1([x1, self.attn(self.norm1(x2))])  # Attention block
         x1, x2 = self.clone2(x, 2)
@@ -234,40 +270,89 @@ class VisionTransformer(nn.Module):
         else:
             self.head = Linear(embed_dim, num_classes)
 
+        self._config: MethodConfig = METHOD_CONFIGS["grad"]
+        self._method_name: str = "grad"
+        self._layer_act_hooks: List = []
+        self._layer_activations: Dict[str, torch.Tensor] = {}
+
         # Init weights
         self.apply(self._init_weights)
 
-        # Placeholder for input gradients 
-        self.inp_grad = None
+    def set_mode(self, method: str, config: Optional[MethodConfig] = None) -> None:
+        """Configure the model for a given XAI method."""
+        if config is None:
+            if method not in METHOD_CONFIGS:
+                raise ValueError(
+                    f"Unknown method '{method}'. "
+                    f"Available: {list(METHOD_CONFIGS.keys())}"
+                )
+            config = METHOD_CONFIGS[method]
+ 
+        self._method_name = method
+        self._config = config
+ 
+        # LRP hooks
+        RelProp.set_lrp_mode(config.lrp_hooks)
+        for m in self.modules():
+            if isinstance(m, RelProp):
+                m.apply_mode()
+ 
+        # Attention caching
+        for block in self.blocks:
+            block.attn.apply_config(config)
+ 
+        # Layer activation hooks
+        self._clear_layer_hooks()
+        for layer_name in config.cache_layer_activations:
+            self._register_layer_hook(layer_name)
 
-    @property
-    def no_weight_decay(self) -> Set[str]:
-        """Specifies parameters that should bypass weight decay regularization."""
-        return {'pos_embed', 'cls_token'}
+    def override_layer(self, layer_name: str) -> None:
+        self._clear_layer_hooks()
+        self._register_layer_hook(layer_name)
+
+    def _register_layer_hook(self, layer_name: str) -> None:
+        named = dict(self.named_modules())
+        if layer_name not in named:
+            raise ValueError(
+                f"Layer '{layer_name}' not found. "
+                f"Named modules: {list(named.keys())}"
+            )
+ 
+        def hook(module, inputs, output, name=layer_name):
+            self._layer_activations[name] = output
+ 
+        handle = named[layer_name].register_forward_hook(hook)
+        self._layer_act_hooks.append(handle)
+ 
+    def _clear_layer_hooks(self) -> None:
+        for h in self._layer_act_hooks:
+            h.remove()
+        self._layer_act_hooks.clear()
+        self._layer_activations.clear()
+ 
+    def get_attn_weights(self) -> List[List[torch.Tensor]]:
+        """Per-layer list of cached attention tensors."""
+        return [block.attn.get_attn_weights() for block in self.blocks]
+ 
+    def get_attn_gradients(self) -> List[List[torch.Tensor]]:
+        """Per-layer list of cached attention gradient tensors."""
+        return [block.attn.get_attn_gradients() for block in self.blocks]
+ 
+    def get_layer_activations(self) -> Dict[str, torch.Tensor]:
+        """Dict of {layer_name: activation_tensor} for hooked layers."""
+        return dict(self._layer_activations)
     
-    def _save_inp_grad(self, grad: torch.Tensor) -> None:
-        """Internal callback hooked to capture intermediate tensor gradients."""
-        self.inp_grad = grad
-
-    def get_input_grad(self) -> Optional[torch.Tensor]:
-        """Retrieves stored input gradients after backward execution."""
-        return self.inp_grad
+    def get_attn_relevance(self) -> List[List[torch.Tensor]]:
+        """Per-layer list of cached attention relevance tensors."""
+        return [block.attn.get_attn_relevance() for block in self.blocks]
     
-    def _init_weights(self, m: nn.Module) -> None:
-        """Applies truncated normal weight initialization according to standard ViT specifications."""
-        if m is self:
-            nn.init.trunc_normal_(self.pos_embed, std=0.02)
-            nn.init.trunc_normal_(self.cls_token, std=0.02)
-        elif isinstance(m, Linear):
-            nn.init.trunc_normal_(m.weight, std=0.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        cfg = self._config
         B = x.shape[0]
+
+        if cfg.requires_grad and not x.requires_grad:
+            x = x.requires_grad_(True)
+        
         x = self.patch_embed(x)  # [B, num_patches, dim]
 
         # Expand class tokens across batch and prepend to sequence
@@ -276,10 +361,6 @@ class VisionTransformer(nn.Module):
 
         # Inject positional embeddings
         x = self.add([x, self.pos_embed]) 
-
-        # Dynamic hook registration on the execution graph
-        if x.requires_grad:
-            x.register_hook(self._save_inp_grad) 
 
         for block in self.blocks:
             x = block(x)
@@ -295,10 +376,15 @@ class VisionTransformer(nn.Module):
         return x
 
     def relprop(self, R, **kwargs):
+        if not self._config.lrp_hooks:
+            raise RuntimeError(
+                f"relprop() requires lrp_hooks=True. "
+                f"Current method '{self._method_name}' has lrp_hooks=False."
+            )
+        
         R = self.head.relprop(R, **kwargs)
         R = R.unsqueeze(dim=1)  
         R = self.pool.relprop(R, **kwargs)
-
         R = self.norm.relprop(R, **kwargs)
 
         for block in reversed(self.blocks):
@@ -310,3 +396,26 @@ class VisionTransformer(nn.Module):
         R = R.sum(dim=1)
         return R
     
+    def cleanup(self):
+        for module in self.modules():
+            for attr in ['X', 'Y', 'input', 'output', 'saved_attn']:
+                if hasattr(module, attr):
+                    delattr(module, attr)
+
+    @property
+    def no_weight_decay(self) -> Set[str]:
+        """Specifies parameters that should bypass weight decay regularization."""
+        return {'pos_embed', 'cls_token'}
+    
+    def _init_weights(self, m: nn.Module) -> None:
+        """Applies truncated normal weight initialization according to standard ViT specifications."""
+        if m is self:
+            nn.init.trunc_normal_(self.pos_embed, std=0.02)
+            nn.init.trunc_normal_(self.cls_token, std=0.02)
+        elif isinstance(m, Linear):
+            nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)

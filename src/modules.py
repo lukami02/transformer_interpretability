@@ -27,12 +27,35 @@ class RelProp(nn.Module):
     Registers a forward hook to capture inputs and outputs for use during
     the backward relevance propagation pass.
     """
+    _lrp_enabled: bool = False
 
     def __init__(self) -> None:
         super().__init__()
         self.X: TensorOrList = None
         self.Y: Tensor = None
-        self.register_forward_hook(self._forward_hook_fn)
+        self._hook_handle = None
+        if RelProp._lrp_enabled:
+            self._attach_hook()
+
+    @classmethod
+    def set_lrp_mode(cls, enabled: bool) -> None:
+        cls._lrp_enabled = enabled
+
+    def _attach_hook(self) -> None:
+        if self._hook_handle is None:
+            self._hook_handle = self.register_forward_hook(self._forward_hook_fn)
+
+    def _detach_hook(self) -> None:
+        if self._hook_handle is not None:
+            self._hook_handle.remove()
+            self._hook_handle = None
+
+    def apply_mode(self) -> None:
+        """Sync hook registration with the current class-level flag."""
+        if RelProp._lrp_enabled:
+            self._attach_hook()
+        else:
+            self._detach_hook()
 
     def _forward_hook_fn(
         self,
