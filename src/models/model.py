@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing import Dict, Set, Tuple, Union, Optional
 from .modules import *
-from .xai.method_configs import MethodConfig, METHOD_CONFIGS
+from ..xai.method_configs import MethodConfig, METHOD_CONFIGS
 
 class PatchEmbed(nn.Module):
     """
