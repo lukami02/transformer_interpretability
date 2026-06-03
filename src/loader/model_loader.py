@@ -4,7 +4,7 @@ import torch
 from torchvision import transforms
 import torch.nn as nn
 from typing import Callable, Dict, Any, Optional
-from ..model import VisionTransformer
+from ..models.model import VisionTransformer
 
 logger = logging.getLogger("WeightLoader")
 
@@ -133,7 +133,7 @@ _MODEL_REGISTRY: Dict[str, Callable[..., VisionTransformer]] = {
     "vit_base_patch16_224": vit_base_patch16_224,
 }
 
-def create_model(model_name: str, pretrained: bool = True, **kwargs) -> VisionTransformer:
+def create_model(model_name: str = "vit_base_patch16_224", pretrained: bool = True, **kwargs) -> VisionTransformer:
     """
     Factory function to create a model by name.
     """
