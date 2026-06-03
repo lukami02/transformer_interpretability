@@ -1,9 +1,10 @@
 import math
 import logging
 import torch
+from torchvision import transforms
 import torch.nn as nn
-from typing import Dict, Any, Optional
-from .model import VisionTransformer
+from typing import Callable, Dict, Any, Optional
+from ..model import VisionTransformer
 
 logger = logging.getLogger("WeightLoader")
 
@@ -98,12 +99,25 @@ def vit_base_patch16_224(pretrained: bool = False, **kwargs: Any) -> VisionTrans
         **kwargs
     )
 
+    mean = [0.5, 0.5, 0.5]
+    std = [0.5, 0.5, 0.5]
+
+    eval_transform = transforms.Compose([
+        transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=mean, std=std),
+    ])
+
     model.default_cfg = {
         'url': 'https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth',
         'num_classes': 1000, 
         'input_size': (3, 224, 224),
         'first_conv': 'patch_embed.proj', 
-        'classifier': 'head'
+        'classifier': 'head',
+        'mean': [0.5, 0.5, 0.5],
+        'std': [0.5, 0.5, 0.5],
+        'eval_transform': eval_transform,
     }
     
     if pretrained:
@@ -114,3 +128,17 @@ def vit_base_patch16_224(pretrained: bool = False, **kwargs: Any) -> VisionTrans
         )
         
     return model
+
+_MODEL_REGISTRY: Dict[str, Callable[..., VisionTransformer]] = {
+    "vit_base_patch16_224": vit_base_patch16_224,
+}
+
+def create_model(model_name: str, pretrained: bool = True, **kwargs) -> VisionTransformer:
+    """
+    Factory function to create a model by name.
+    """
+    if model_name not in _MODEL_REGISTRY:
+        raise ValueError(f"Model '{model_name}' not found in registry. Available models: {list(_MODEL_REGISTRY.keys())}")
+    
+    model_fn = _MODEL_REGISTRY[model_name]
+    return model_fn(pretrained=pretrained, **kwargs)
