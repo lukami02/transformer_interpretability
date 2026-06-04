@@ -97,8 +97,6 @@ def download_imagenet_subset(
 
         bboxes_xyxy = []
         for b in item.get("label_bbox_enriched", []):
-            if b.get("label", "").lower() != gt_label_name:
-                continue
             xmin, ymin, w, h = b["bbox"]
             bboxes_xyxy.append({ 
                     "bbox": [xmin, ymin, xmin + w, ymin + h] ,
@@ -220,14 +218,17 @@ def get_xai_dataloader(
     transform: Optional[transforms.Compose] = None,
     batch_size: int = 16,
     num_workers: int = 4,
+    seed: int = 42,
+    num_samples: int = 5000, 
+    confidence_threshold = 0.5,
     pin_memory: bool = True
 ) -> DataLoader:
     """
     Utility function to get DataLoader for XAI evaluation.
     """
-    download_imagenet_subset(output_dir=output_dir)
+    download_imagenet_subset(output_dir=output_dir, num_samples=num_samples, seed=seed)
     
-    dataset = LocalImageNetXAIDataset(output_dir=output_dir, transform=transform)
+    dataset = LocalImageNetXAIDataset(output_dir=output_dir, transform=transform, confidence_threshold=confidence_threshold)
     
     return DataLoader(
         dataset,
