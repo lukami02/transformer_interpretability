@@ -57,7 +57,7 @@ METHOD_CONFIGS: dict[str, MethodConfig] = {
         requires_grad=True,
     ),
 
-    "gradcam": MethodConfig(
+    "grad_cam": MethodConfig(
         cache_layer_activations=["blocks.11"],
     ),
 
@@ -75,7 +75,7 @@ METHOD_CONFIGS: dict[str, MethodConfig] = {
         cache_attn_gradients=True,
     ),
     
-    """gmar""": MethodConfig(
+    "gmar": MethodConfig(
         cache_attn_weights=True,
         cache_attn_gradients=True,
     ),
