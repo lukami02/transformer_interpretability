@@ -1,10 +1,10 @@
 from __future__ import annotations
 import json
-from config import parse_args, ModelConfig
-from src.xai_eval.evaluate import XAIEvaluator
-from src.loader.model_loader import create_model
-from src.loader.data_loader import get_xai_dataloader
-from src.xai import *
+from .config import parse_args, ModelConfig
+from ..src.xai_eval.evaluate import XAIEvaluator
+from ..src.loader.model_loader import create_model
+from ..src.loader.data_loader import get_xai_dataloader
+from ..src.xai import *
 
 ALL_METHODS = {
     "Vanilla Gradient": VanillaGradient,
