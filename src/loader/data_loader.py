@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 from datasets import load_dataset
-from bbox_helper import download_imagenet_bbox_annotations, _build_xml_index, parse_voc_xml, get_imagenet_label_map
+from .bbox_helper import download_imagenet_bbox_annotations, _build_xml_index, parse_voc_xml, get_imagenet_label_map
 
 
 logger = logging.getLogger("DataPipeline")
