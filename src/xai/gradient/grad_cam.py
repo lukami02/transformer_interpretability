@@ -12,7 +12,7 @@ class GradCAM(XAIMethod):
     regions in the input.
     """
 
-    def __init__(self, model, target_layer: str = None):
+    def __init__(self, model, target_layer: str = "blocks.11.attn.qkv"):
         super().__init__(model)
         self.target_layer = target_layer
         self.model.set_mode("grad_cam")
@@ -22,18 +22,19 @@ class GradCAM(XAIMethod):
             self.model.set_mode("grad_cam")
 
         x = self._prepare_input(x)
+        logits = self._forward(x)
 
-        activations = self.model.get_layer_activations(self.target_layer)
-        activations = activations[self.target_layer] 
-        activations.requires_grad_(True)
-    
-        gradients = self._compute_gradient_wrt(x, target, wrt=activations, retain_graph=False)
-        activations = activations[:, 1:, :]
-        gradients = gradients[:, 1:, :]
+        if target is None:
+            target = logits.argmax(dim=1).item()
+        score = logits[0, target]
 
-        weights = gradients.mean(dim=1, keepdim=True)    # [B, 1, C]
-        cam = (weights * activations).sum(dim=2)         # [B, N]
-        cam = torch.relu(cam)                            
+        activations = self.model.get_layer_activations()[self.target_layer] 
+        (gradients,) = torch.autograd.grad(score, activations, retain_graph=False)
+
+        cam = (gradients * activations).sum(dim=-1)
+        cam = torch.relu(cam)                         
+
+        cam = cam[:, 1:]
 
         B = cam.shape[0]
         grid = int(cam.shape[1] ** 0.5)
