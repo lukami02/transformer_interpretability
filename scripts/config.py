@@ -173,7 +173,7 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
     g.add_argument(
         "--methods",
         nargs="+",
-        default=RunConfig.methods,
+        default=RunConfig().methods,
         help="Which XAI methods to evaluate",
     )
 
