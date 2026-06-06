@@ -42,7 +42,7 @@ if __name__ == "__main__":
     eval_config = cfg.to_eval_config(model_cfg=model_cfg)
 
     evaluator = XAIEvaluator(
-        methods=[(name, ALL_METHODS[name]) for name in cfg.methods],
+        methods=[(name, ALL_METHODS[name](model)) for name in cfg.methods],
         model=model,
         config=eval_config,
     )
