@@ -90,8 +90,7 @@ class XAIEvaluator:
 
                 log_msg = f"  [{i}/{n}] "
                 
-                with torch.no_grad():
-                    sal = xai_fn(img.to(self.cfg.device)).cpu()
+                sal = xai_fn(img.to(self.cfg.device), lbl).cpu()
 
                 saliencies_for_spearman.append(sal)
                 
@@ -150,7 +149,7 @@ class XAIEvaluator:
         log.info("=" * 65)
 
         col_w = 16
-        log.info(f"{'Metoda':<22}{'MoRF AUC↓':>{col_w}}{'LeRF AUC↑':>{col_w}}{'PG Acc↑':>{col_w}}")
+        log.info(f"{'Method':<22}{'MoRF AUC↓':>{col_w}}{'LeRF AUC↑':>{col_w}}{'PG Acc↑':>{col_w}}")
         log.info("-" * (22 + col_w * 3))
 
         for name, r in methods.items():
@@ -160,7 +159,7 @@ class XAIEvaluator:
             log.info(f"{name:<22}{morf_str:>{col_w}}{lerf_str:>{col_w}}{pg_str:>{col_w}}")
 
         if spearman:
-            log.info("\n  Spearman rho (saglasnost metoda):")
+            log.info("\n  Spearman rho:")
             log.info("  " + "-" * 50)
             for pair, sp in spearman.items():
                 bar = "█" * int(max(0.0, sp["mean_rho"]) * 20)
