@@ -52,7 +52,7 @@ def saliency_to_patch_scores(
     sal = normalize_saliency(saliency)
 
     if sal.shape[-2:] == (n, n):
-        return sal.squeeze(0).flatten().numpy()
+        return sal.squeeze(0).flatten().detach().cpu().numpy()
 
     sal = upsample_to_image_size(sal, model_cfg)
     sal = sal.squeeze(0) 
@@ -86,7 +86,7 @@ def saliency_to_pixel_scores(
     """
     sal = normalize_saliency(saliency)
     sal = upsample_to_image_size(sal, model_cfg)
-    return sal.squeeze(0).flatten().numpy()
+    return sal.squeeze(0).flatten().detach().cpu().numpy()
 
 def get_sorted_patches(
     saliency: torch.Tensor,
