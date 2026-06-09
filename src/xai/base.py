@@ -37,7 +37,7 @@ class XAIMethod(ABC):
     def _forward_backward(
         self, 
         x: torch.Tensor, 
-        target: Optional[int],
+        target: Optional[int] = None,
         retain_graph: bool = False
     ) -> torch.Tensor:
         logits = self.model(x)

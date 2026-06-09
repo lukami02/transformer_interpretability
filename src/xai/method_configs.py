@@ -58,7 +58,8 @@ METHOD_CONFIGS: dict[str, MethodConfig] = {
     ),
 
     "grad_cam": MethodConfig(
-        cache_layer_activations=["blocks.11.attn.qkv"],
+        cache_attn_weights=True,
+        cache_attn_gradients=True
     ),
 
     # ------------------------------------------------------------------
