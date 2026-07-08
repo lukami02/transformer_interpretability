@@ -88,6 +88,7 @@ def saliency_to_pixel_scores(
     sal = upsample_to_image_size(sal, model_cfg)
     return sal.squeeze(0).flatten().detach().cpu().numpy()
 
+
 def get_sorted_patches(
     saliency: torch.Tensor,
     model_cfg: ModelConfig,
@@ -106,3 +107,15 @@ def get_sorted_patches(
     ]
     indexed.sort(key=lambda x: x[1], reverse=descending)
     return [patch for patch, _ in indexed]
+
+
+def get_sorted_patch_indices(
+    saliency: torch.Tensor,
+    model_cfg: ModelConfig,
+    descending: bool = True,
+) -> np.ndarray:
+    scores = saliency_to_patch_scores(saliency, model_cfg)
+    order = np.argsort(scores)
+    if descending:
+        order = order[::-1]
+    return order

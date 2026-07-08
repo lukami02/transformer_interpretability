@@ -1,6 +1,7 @@
 import torch
+import numpy as np
 from ....scripts.config import ModelConfig
-from .saliency import get_sorted_patches
+from .saliency import get_sorted_patches, get_sorted_patch_indices
 
 
 def get_baseline(image: torch.Tensor, model_cfg: ModelConfig, strategy: str = "mean") -> torch.Tensor:
@@ -69,3 +70,37 @@ def perturbation_steps(
         current = apply_patch_perturbation(current, sorted_patches[ptr:end], baseline, model_cfg)
         yield current.clone()
         ptr = end
+
+def perturbation_mask_steps(
+    saliency: torch.Tensor,
+    model_cfg: ModelConfig,
+    n_steps: int,
+    order: str,
+) -> torch.Tensor:
+    """
+    Builds the full stack of attention-visibility masks for MoRF/LeRF perturbation
+    of a single image, to be forwarded as one batch.
+    """
+    sorted_idx = get_sorted_patch_indices(saliency, model_cfg, descending=(order == "morf"))
+    total_patches = len(sorted_idx)
+    num_patches = model_cfg.num_patches_per_dim ** 2
+ 
+    patches_per_step = max(1, total_patches // n_steps)
+ 
+    removed_counts = [0]
+    ptr = 0
+    for step in range(n_steps):
+        if ptr >= total_patches:
+            break
+        end = total_patches if step == n_steps - 1 else min(ptr + patches_per_step, total_patches)
+        removed_counts.append(end)
+        ptr = end
+ 
+    mask_stack = torch.ones(len(removed_counts), num_patches, dtype=torch.bool)
+    sorted_idx_t = torch.as_tensor(np.ascontiguousarray(sorted_idx), dtype=torch.long)
+    for row, n_removed in enumerate(removed_counts):
+        if n_removed > 0:
+            mask_stack[row, sorted_idx_t[:n_removed]] = False
+ 
+    return mask_stack
+ 
