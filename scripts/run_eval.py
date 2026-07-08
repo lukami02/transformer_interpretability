@@ -26,6 +26,7 @@ if __name__ == "__main__":
 
     # Model
     model = create_model(model_name=cfg.model_name, pretrained=cfg.pretrained).to(device)
+    model_base = create_model(model_name=cfg.model_name, pretrained=cfg.pretrained, basic=True).to(device)
     model_cfg = ModelConfig.from_vit(model)
 
     # Data
@@ -44,6 +45,7 @@ if __name__ == "__main__":
     evaluator = XAIEvaluator(
         methods=[(name, ALL_METHODS[name](model)) for name in cfg.methods],
         model=model,
+        model_base=model_base,
         config=eval_config,
     )
 

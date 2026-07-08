@@ -21,11 +21,13 @@ class XAIEvaluator:
         self,
         methods: list,                        
         model:   Optional[torch.nn.Module] = None,
+        model_base: Optional[torch.nn.Module] = None,
         config:  Optional[EvalConfig] = None,
         custom_logger: Optional[logging.Logger] = None,
     ):
         self.methods = methods
         self.model   = model
+        self.model_base = model_base
         self.cfg     = config
         self.logger = custom_logger if custom_logger is not None else logger
 
@@ -33,6 +35,11 @@ class XAIEvaluator:
             raise ValueError("EvalConfig must be provided.")
         
         self.logger.setLevel(logging.INFO if self.cfg.verbose else logging.WARNING)
+
+        if self.model_base is not None:
+            self.logger.info("model_base provided: MoRF/LeRF will use the fast batched attention-masking path.")
+        else:
+            self.logger.info("No model_base provided: MoRF/LeRF will fall back to the slow per-step path using `model`.")
 
     def run(self, dataloader: torch.utils.data.DataLoader,) -> dict:
         """
@@ -95,13 +102,17 @@ class XAIEvaluator:
                 saliencies_for_spearman.append(sal)
                 
                 if self.model is not None:
-                    morf_res = compute_morf(img, sal, self.model, lbl, 
-                        self.cfg.model_cfg, self.cfg.n_steps, 
-                        self.cfg.baseline_strategy, self.cfg.device
+                    morf_res = compute_morf(
+                        img, sal, self.model, lbl,
+                        self.cfg.model_cfg, self.cfg.n_steps,
+                        self.cfg.baseline_strategy, self.cfg.device,
+                        model_base=self.model_base,
                     )
-                    lerf_res = compute_lerf(img, sal, self.model, lbl, 
-                        self.cfg.model_cfg, self.cfg.n_steps, 
-                        self.cfg.baseline_strategy, self.cfg.device
+                    lerf_res = compute_lerf(
+                        img, sal, self.model, lbl,
+                        self.cfg.model_cfg, self.cfg.n_steps,
+                        self.cfg.baseline_strategy, self.cfg.device,
+                        model_base=self.model_base,
                     )
                     morf_per_image.append(morf_res)
                     lerf_per_image.append(lerf_res)
