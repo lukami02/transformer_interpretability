@@ -375,7 +375,7 @@ class VisionTransformer(nn.Module):
         x = self.head(x)
         return x
 
-    def relprop(self, R, **kwargs):
+    def relprop(self, R, patch_level=True, **kwargs):
         if not self._config.lrp_hooks:
             raise RuntimeError(
                 f"relprop() requires lrp_hooks=True. "
@@ -390,11 +390,18 @@ class VisionTransformer(nn.Module):
         for block in reversed(self.blocks):
             R = block.relprop(R, **kwargs)
 
-        (R, _) = self.add.relprop(R, **kwargs)
-        R = R[:, 1:]  # Remove the class token
-        R = self.patch_embed.relprop(R, **kwargs)
-        R = R.sum(dim=1)
-        return R
+        (R_patch, R_pos) = self.add.relprop(R, **kwargs)
+        R_patch = R_patch[:, 1:]  # Remove the class token
+
+        if patch_level:
+            R_patch = R_patch.sum(dim=-1)
+            grid = int(R_patch.shape[1] ** 0.5)
+            R_patch = R_patch.reshape(R_patch.shape[0], grid, grid)
+            return R_patch
+        else:
+            R_pixel = self.patch_embed.relprop(R_patch, **kwargs)
+            R_pixel = R_pixel.sum(dim=1)
+            return R_pixel
     
     def cleanup(self):
         for module in self.modules():

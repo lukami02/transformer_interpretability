@@ -16,7 +16,7 @@ class LRP(XAIMethod):
         self.alpha = alpha
         self.model.set_mode("lrp")
 
-    def attribute(self, x: torch.Tensor, target: Optional[int], **kwargs) -> torch.Tensor:
+    def attribute(self, x: torch.Tensor, target: Optional[int], patch_level: bool = True, **kwargs) -> torch.Tensor:
         if self.model._method_name != "lrp":
             self.model.set_mode("lrp")
 
@@ -29,5 +29,5 @@ class LRP(XAIMethod):
         R = torch.zeros_like(logits)
         R[0, target] = 1.0
 
-        saliency = self.model.relprop(R, alpha=self.alpha)
+        saliency = self.model.relprop(R, alpha=self.alpha, patch_level=patch_level)
         return saliency
