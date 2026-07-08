@@ -5,6 +5,7 @@ from torchvision import transforms
 import torch.nn as nn
 from typing import Callable, Dict, Any, Optional
 from ..models.model import VisionTransformer
+from ..models.model import VisionTransformerBase
 
 logger = logging.getLogger("WeightLoader")
 
@@ -85,11 +86,12 @@ def load_pretrained_vit(
     return model
 
 
-def vit_base_patch16_224(pretrained: bool = False, **kwargs: Any) -> VisionTransformer:
+def vit_base_patch16_224(pretrained: bool = False, basic: bool = False, **kwargs: Any) -> nn.Module:
     """
     Instantiates a ViT-Base architecture with patch size 16 and resolution 224x224.
     """
-    model = VisionTransformer(
+    model_class = VisionTransformerBase if basic else VisionTransformer
+    model = model_class(
         patch_size=16,
         embed_dim=768,
         depth=12,
@@ -129,11 +131,16 @@ def vit_base_patch16_224(pretrained: bool = False, **kwargs: Any) -> VisionTrans
         
     return model
 
-_MODEL_REGISTRY: Dict[str, Callable[..., VisionTransformer]] = {
+_MODEL_REGISTRY: Dict[str, Callable[..., nn.Module]] = {
     "vit_base_patch16_224": vit_base_patch16_224,
 }
 
-def create_model(model_name: str = "vit_base_patch16_224", pretrained: bool = True, **kwargs) -> VisionTransformer:
+def create_model(
+    model_name: str = "vit_base_patch16_224", 
+    pretrained: bool = True, 
+    basic: bool = False, 
+    **kwargs
+) -> nn.Module:
     """
     Factory function to create a model by name.
     """
@@ -141,4 +148,4 @@ def create_model(model_name: str = "vit_base_patch16_224", pretrained: bool = Tr
         raise ValueError(f"Model '{model_name}' not found in registry. Available models: {list(_MODEL_REGISTRY.keys())}")
     
     model_fn = _MODEL_REGISTRY[model_name]
-    return model_fn(pretrained=pretrained, **kwargs)
+    return model_fn(pretrained=pretrained, basic=basic, **kwargs)
