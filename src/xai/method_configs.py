@@ -89,4 +89,14 @@ METHOD_CONFIGS: dict[str, MethodConfig] = {
     "lrp": MethodConfig(
         lrp_hooks=True,
     ),
+
+    # ------------------------------------------------------------------
+    # Black-box methods
+    # ------------------------------------------------------------------
+    
+    "shap": MethodConfig(
+    ),
+
+    "rise": MethodConfig(
+    ),
 }

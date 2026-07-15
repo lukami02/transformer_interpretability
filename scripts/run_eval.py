@@ -1,5 +1,7 @@
 from __future__ import annotations
 import json
+
+from xai.black_box.rise import RISE
 from .config import parse_args, ModelConfig
 from ..src.xai_eval.evaluate import XAIEvaluator
 from ..src.loader.model_loader import create_model
@@ -15,7 +17,9 @@ ALL_METHODS = {
     "Attention Rollout": AttentionRollout,
     "Transformer Attribution": TransformerAttribution,
     "GMAR": GMAR,
-    "LRP": LRP
+    "LRP": LRP,
+    "RISE": RISE,
+    "SHAP": KernelSHAP,
 }
 
 if __name__ == "__main__":
@@ -42,8 +46,13 @@ if __name__ == "__main__":
     # Evaluator
     eval_config = cfg.to_eval_config(model_cfg=model_cfg)
 
+    method_kwargs = {
+        "RISE": {"model_base": model_base, "n_masks": cfg.rise_mask, "mask_prob": cfg.rise_mask_prob},
+        "SHAP": {"model_base": model_base, "n_masks": cfg.kernel_shap_mask, "ridge_alpha": cfg.kernel_shap_ridge_alpha},
+    }
+
     evaluator = XAIEvaluator(
-        methods=[(name, ALL_METHODS[name](model)) for name in cfg.methods],
+        methods=[(name, ALL_METHODS[name](model, **method_kwargs.get(name, {}))) for name in cfg.methods],
         model=model,
         model_base=model_base,
         config=eval_config,

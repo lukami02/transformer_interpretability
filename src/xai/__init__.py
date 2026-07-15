@@ -8,6 +8,9 @@ from .attention.rollout import AttentionRollout
 from .attention.transformer_attribution import TransformerAttribution
 from .attention.gmar import GMAR
 
+from .black_box.rise import RISE
+from .black_box.shap import KernelSHAP
+
 from .lrp.lrp import LRP
  
 __all__ = [
@@ -23,5 +26,8 @@ __all__ = [
     "GMAR",
     # LRP
     "LRP",
+    # Black-box
+    "RISE",
+    "KernelSHAP",
 ]
  

@@ -77,7 +77,7 @@ class EvalConfig:
     Configuration for the evaluation run.
     """
     model_cfg:           ModelConfig
-    n_steps:             int  = 100
+    n_steps:             int  = 49
     baseline_strategy:   str  = "mean"    # "mean" | "zero" | "noise"
     spearman_level:      str  = "patch"   # "patch" | "pixel"
     pointing_tolerance:  int  = 0
@@ -108,7 +108,8 @@ class RunConfig:
     methods: List[str] = field(default_factory=lambda: [
         "Vanilla Gradient", "Gradient X Input", "Integrated Gradients", 
         "Smooth Gradient", "GradCAM", "Attention Rollout", 
-        "Transformer Attribution", "GMAR", "LRP"
+        "Transformer Attribution", "GMAR", "LRP",
+        "RISE", "SHAP"
     ])
     
     # EvalConfig hyperparameters 
@@ -117,6 +118,13 @@ class RunConfig:
     spearman_level: str = "patch"     # "patch" | "pixel"
     pointing_tolerance: int = 0
     pointing_multi_bbox: bool = False
+
+    # Black-box XAI hyperparameters
+    black_box_batch: int = 256
+    rise_mask: int = 8000
+    rise_mask_prob: float = 0.5
+    kernel_shap_mask: int = 2000
+    kernel_shap_ridge_alpha: float = 1e-3
 
     # Runtime 
     device: str = "auto"              # "auto" | "cuda" | "cpu"
@@ -185,6 +193,14 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
     g.add_argument("--pointing-tolerance",   type=int,   default=RunConfig.pointing_tolerance)
     g.add_argument("--pointing-multi-bbox",  action="store_true", help="Allow hit if peak falls in any valid bbox")
 
+    # Black-box hyperparams
+    g = parser.add_argument_group("Black-box (RISE / KernelSHAP) Hyperparameters")
+    g.add_argument("--black-box-batch",         type=int,   default=RunConfig.black_box_batch)
+    g.add_argument("--rise-mask",               type=int,   default=RunConfig.rise_mask)
+    g.add_argument("--rise-mask-prob",          type=float, default=RunConfig.rise_mask_prob)
+    g.add_argument("--kernel-shap-mask",        type=int,   default=RunConfig.kernel_shap_mask)
+    g.add_argument("--kernel-shap-ridge-alpha", type=float, default=RunConfig.kernel_shap_ridge_alpha)
+
     # Runtime
     g = parser.add_argument_group("Runtime")
     g.add_argument("--device",        type=str,  default=RunConfig.device, choices=["auto", "cuda", "cpu"])
@@ -210,6 +226,11 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
         spearman_level=args.spearman_level,
         pointing_tolerance=args.pointing_tolerance,
         pointing_multi_bbox=args.pointing_multi_bbox,
+        black_box_batch=args.black_box_batch,
+        rise_mask=args.rise_mask,
+        rise_mask_prob=args.rise_mask_prob,
+        kernel_shap_mask=args.kernel_shap_mask,
+        kernel_shap_ridge_alpha=args.kernel_shap_ridge_alpha,
         device=args.device,
         verbose=not args.no_verbose,
         verbose_step=args.verbose_step,
