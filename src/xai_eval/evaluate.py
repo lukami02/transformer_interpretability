@@ -8,6 +8,7 @@ from ...scripts.config import EvalConfig
 from .metrics.perturbation import compute_morf, compute_lerf, aggregate_perturbation_results
 from .metrics.pointing_game import pointing_game_multi_bbox, pointing_game_single
 from .metrics.spearman import compute_spearman_matrix
+from .metrics.saliency_invariance import patch_shuffle_test, single_patch_perturbation_test
 
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,9 @@ class XAIEvaluator:
         custom_logger: Optional[logging.Logger] = None,
     ):
         self.methods = methods
-        self.model   = model
+        self.model = model
         self.model_base = model_base
-        self.cfg     = config
+        self.cfg = config
         self.logger = custom_logger if custom_logger is not None else logger
 
         if self.cfg is None:
@@ -40,6 +41,7 @@ class XAIEvaluator:
             self.logger.info("model_base provided: MoRF/LeRF will use the fast batched attention-masking path.")
         else:
             self.logger.info("No model_base provided: MoRF/LeRF will fall back to the slow per-step path using `model`.")
+
 
     def run(self, dataloader: torch.utils.data.DataLoader,) -> dict:
         """
@@ -78,13 +80,14 @@ class XAIEvaluator:
 
         morf_per_image = []
         lerf_per_image = []
+        shuffle_rhos = []
+        perturb_rhos = []
         pg_hits  = 0
         pg_total = 0
         saliencies_for_spearman = [] 
         i = 0
 
         pg_fn = pointing_game_multi_bbox if self.cfg.pointing_multi_bbox else pointing_game_single
-
 
         for batch in dataloader:
             has_bbox = len(batch) == 3
@@ -93,7 +96,7 @@ class XAIEvaluator:
 
             for j, img in enumerate(imgs_b.unbind(0)):
                 lbl = lbls_b[j].item()
-                i  += 1
+                i += 1
 
                 log_msg = f"  [{i}/{n}] "
                 
@@ -102,6 +105,7 @@ class XAIEvaluator:
                 saliencies_for_spearman.append(sal)
                 
                 if self.model is not None:
+                    # MoRF and LeRF
                     morf_res = compute_morf(
                         img, sal, self.model, lbl,
                         self.cfg.model_cfg, self.cfg.n_steps,
@@ -117,6 +121,35 @@ class XAIEvaluator:
                     morf_per_image.append(morf_res)
                     lerf_per_image.append(lerf_res)
                     log_msg += f" | MoRF={morf_res['auc']:.4f}  LeRF={lerf_res['auc']:.4f}"
+
+                    # Patch Shuffle Test
+                    shuffle_res = patch_shuffle_test(
+                        image=img,
+                        saliency=sal,
+                        target_class=lbl,
+                        xai_fn=xai_fn,
+                        model_cfg=self.cfg.model_cfg,
+                        device=self.cfg.device,
+                        seed=self.cfg.seed
+                    )
+                    if not np.isnan(shuffle_res["rho"]):
+                        shuffle_rhos.append(shuffle_res["rho"])
+
+                    # Single Patch Perturbation Test
+                    perturb_res = single_patch_perturbation_test(
+                        image=img,
+                        saliency=sal,
+                        target_class=lbl,
+                        xai_fn=xai_fn,
+                        model_cfg=self.cfg.model_cfg,
+                        baseline_strategy=self.cfg.baseline_strategy,
+                        device=self.cfg.device,
+                        seed=self.cfg.seed
+                    )
+                    if not np.isnan(perturb_res["rho"]):
+                        perturb_rhos.append(perturb_res["rho"])
+
+                    log_msg += f" | Shfl_rho={shuffle_res['rho']:+.3f} | Patch_rho={perturb_res['rho']:+.3f}"
 
                     if bboxs_b is not None:
                         bbox = bboxs_b[j]
@@ -135,6 +168,20 @@ class XAIEvaluator:
             result["lerf"] = aggregate_perturbation_results(lerf_per_image)
             self.logger.info(f"\n  → MoRF mean={result['morf']['mean_auc']:.4f} ± {result['morf']['std_auc']:.4f}  (lower = better)")
             self.logger.info(f"  → LeRF mean={result['lerf']['mean_auc']:.4f} ± {result['lerf']['std_auc']:.4f}  (higher = better)")
+
+        if shuffle_rhos:
+            result["patch_shuffle"] = {
+                "mean_rho": float(np.mean(shuffle_rhos)),
+                "std_rho": float(np.std(shuffle_rhos))
+            }
+            self.logger.info(f"  → Patch Shuffle Rho={result['patch_shuffle']['mean_rho']:.4f} ± {result['patch_shuffle']['std_rho']:.4f}")
+
+        if perturb_rhos:
+            result["patch_perturb"] = {
+                "mean_rho": float(np.mean(perturb_rhos)),
+                "std_rho": float(np.std(perturb_rhos))
+            }
+            self.logger.info(f"  → Single Patch Perturb Rho={result['patch_perturb']['mean_rho']:.4f} ± {result['patch_perturb']['std_rho']:.4f}")
 
         if pg_total > 0:
             result["pointing_game"] = {
@@ -166,9 +213,11 @@ class XAIEvaluator:
             f"{'MoRF@30%↓':>{col_w}}"
             f"{'LeRF AUC↑':>{col_w}}"
             f"{'LeRF@30%↑':>{col_w}}"
+            f"{'Shfl ρ↑':>{col_w}}"
+            f"{'Pert ρ↑':>{col_w}}"
             f"{'PG Acc↑':>{col_w}}"
         )
-        log.info("-" * (22 + col_w * 5))
+        log.info("-" * (22 + col_w * 7))
 
         for name, r in methods.items():
             if "morf" in r:
@@ -183,6 +232,9 @@ class XAIEvaluator:
             else:
                 lerf_str, lerf_30_str = "—", "—"
 
+            shfl_str = f"{r['patch_shuffle']['mean_rho']:.3f}±{r['patch_shuffle']['std_rho']:.3f}" if "patch_shuffle" in r else "—"
+            pert_str = f"{r['patch_perturb']['mean_rho']:.3f}±{r['patch_perturb']['std_rho']:.3f}" if "patch_perturb" in r else "—"
+
             pg_str = f"{r['pointing_game']['accuracy']:.4f}" if "pointing_game" in r else "—"
 
             log.info(
@@ -191,6 +243,8 @@ class XAIEvaluator:
                 f"{morf_30_str:>{col_w}}"
                 f"{lerf_str:>{col_w}}"
                 f"{lerf_30_str:>{col_w}}"
+                f"{shfl_str:>{col_w}}"
+                f"{pert_str:>{col_w}}"
                 f"{pg_str:>{col_w}}"
             )
 
@@ -201,4 +255,4 @@ class XAIEvaluator:
                 bar = "█" * int(max(0.0, sp["mean_rho"]) * 20)
                 log.info(f"  {pair:<30}  rho={sp['mean_rho']:+.4f} ± {sp['std_rho']:.4f}  {bar}")
 
-        log.info("=" * (22 + col_w * 5))
+        log.info("=" * (22 + col_w * 7))

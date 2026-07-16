@@ -85,6 +85,7 @@ class EvalConfig:
     device:              str  = "cpu"
     verbose:             bool = True
     verbose_step:        int  = 10
+    seed:                int  = 42
 
 
 @dataclass
@@ -148,7 +149,8 @@ class RunConfig:
             pointing_multi_bbox=self.pointing_multi_bbox,
             device=self.resolved_device(),
             verbose=self.verbose,
-            verbose_step=self.verbose_step
+            verbose_step=self.verbose_step,
+            seed=self.seed
         )
 
 
