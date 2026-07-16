@@ -159,15 +159,40 @@ class XAIEvaluator:
         log.info("  SUMMARY — XAI Evaluation")
         log.info("=" * 65)
 
-        col_w = 16
-        log.info(f"{'Method':<22}{'MoRF AUC↓':>{col_w}}{'LeRF AUC↑':>{col_w}}{'PG Acc↑':>{col_w}}")
-        log.info("-" * (22 + col_w * 3))
+        col_w = 22
+        log.info(
+            f"{'Method':<22}"
+            f"{'MoRF AUC↓':>{col_w}}"
+            f"{'MoRF@30%↓':>{col_w}}"
+            f"{'LeRF AUC↑':>{col_w}}"
+            f"{'LeRF@30%↑':>{col_w}}"
+            f"{'PG Acc↑':>{col_w}}"
+        )
+        log.info("-" * (22 + col_w * 5))
 
         for name, r in methods.items():
-            morf_str = f"{r['morf']['mean_auc']:.4f} ±{r['morf']['std_auc']:.3f}" if "morf" in r else "—"
-            lerf_str = f"{r['lerf']['mean_auc']:.4f} ±{r['lerf']['std_auc']:.3f}" if "lerf" in r else "—"
-            pg_str   = f"{r['pointing_game']['accuracy']:.4f}"                      if "pointing_game" in r else "—"
-            log.info(f"{name:<22}{morf_str:>{col_w}}{lerf_str:>{col_w}}{pg_str:>{col_w}}")
+            if "morf" in r:
+                morf_str = f"{r['morf']['mean_auc']:.4f}±{r['morf']['std_auc']:.3f}"
+                morf_30_str = f"{r['morf']['mean_auc_30']:.4f}±{r['morf']['std_auc_30']:.3f}"
+            else:
+                morf_str, morf_30_str = "—", "—"
+
+            if "lerf" in r:
+                lerf_str = f"{r['lerf']['mean_auc']:.4f}±{r['lerf']['std_auc']:.3f}"
+                lerf_30_str = f"{r['lerf']['mean_auc_30']:.4f}±{r['lerf']['std_auc_30']:.3f}"
+            else:
+                lerf_str, lerf_30_str = "—", "—"
+
+            pg_str = f"{r['pointing_game']['accuracy']:.4f}" if "pointing_game" in r else "—"
+
+            log.info(
+                f"{name:<22}"
+                f"{morf_str:>{col_w}}"
+                f"{morf_30_str:>{col_w}}"
+                f"{lerf_str:>{col_w}}"
+                f"{lerf_30_str:>{col_w}}"
+                f"{pg_str:>{col_w}}"
+            )
 
         if spearman:
             log.info("\n  Spearman rho:")
@@ -176,4 +201,4 @@ class XAIEvaluator:
                 bar = "█" * int(max(0.0, sp["mean_rho"]) * 20)
                 log.info(f"  {pair:<30}  rho={sp['mean_rho']:+.4f} ± {sp['std_rho']:.4f}  {bar}")
 
-        log.info("=" * 65)
+        log.info("=" * (22 + col_w * 5))

@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from typing import Optional
 
+from models import model_base
+
 from ....scripts.config import ModelConfig
 from ..utils.perturbation import perturbation_steps, perturbation_mask_steps
 
@@ -99,9 +101,16 @@ def _compute_curve(
     )
  
 
-def _auc(curve: np.ndarray) -> float:
+def _auc(curve: np.ndarray, limit_ratio: Optional[float] = None) -> float:
     """Computes the area under the curve using the trapezoidal rule."""
-    return float(np.trapz(curve) / max(len(curve) - 1, 1))
+    if limit_ratio is not None:
+        n_elements = int(np.ceil(len(curve) * limit_ratio))
+        n_elements = max(min(n_elements, len(curve)), 2)
+        curve_segment = curve[:n_elements]
+    else:
+        curve_segment = curve
+
+    return float(np.trapz(curve_segment) / max(len(curve_segment) - 1, 1))
 
 def compute_morf(
     image: torch.Tensor,
@@ -123,7 +132,11 @@ def compute_morf(
         baseline_strategy=baseline_strategy, device=device,
         model_base=model_base,
     )
-    return {"auc": _auc(curve), "curve": curve}
+    return {
+        "auc": _auc(curve), 
+        "auc_30": _auc(curve, limit_ratio=0.3),
+        "curve": curve
+    }
 
 
 def compute_lerf(
@@ -146,21 +159,29 @@ def compute_lerf(
         baseline_strategy=baseline_strategy, device=device,
         model_base=model_base,
     )
-    return {"auc": _auc(curve), "curve": curve}
+    return {
+        "auc": _auc(curve), 
+        "auc_30": _auc(curve, limit_ratio=0.3),
+        "curve": curve
+    }
 
 def aggregate_perturbation_results(per_image_results: list) -> dict:
     """
     Aggregates perturbation results across a set of images.
     """
-    aucs   = [r["auc"] for r in per_image_results]
-    curves = [r["curve"] for r in per_image_results]
+    aucs    = [r["auc"] for r in per_image_results]
+    aucs_30 = [r["auc_30"] for r in per_image_results]
+    curves  = [r["curve"] for r in per_image_results]
  
     max_len = max(len(c) for c in curves)
     padded  = [np.pad(c, (0, max_len - len(c)), mode="edge") for c in curves]
  
     return {
-        "mean_auc":      float(np.mean(aucs)),
-        "std_auc":       float(np.std(aucs)),
-        "mean_curve":    np.mean(padded, axis=0),
-        "per_image_auc": aucs,
+        "mean_auc":       float(np.mean(aucs)),
+        "std_auc":        float(np.std(aucs)),
+        "mean_auc_30":    float(np.mean(aucs_30)),
+        "std_auc_30":     float(np.std(aucs_30)),
+        "mean_curve":     np.mean(padded, axis=0),
+        "per_image_auc":  aucs,
+        "per_image_auc_30": aucs_30,
     }
