@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from base import XAIMethod
+from ..base import XAIMethod
 
 class RISE(XAIMethod):
     """

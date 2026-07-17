@@ -20,7 +20,7 @@ __all__ = [
 
     "compute_spearman",
     "compute_spearman_matrix",
-    "spearman_single"
+    "spearman_single",
 
     "patch_shuffle_test",
     "single_patch_perturbation_test"

@@ -5,7 +5,7 @@ from torchvision import transforms
 import torch.nn as nn
 from typing import Callable, Dict, Any, Optional
 from ..models.model import VisionTransformer
-from ..models.model import VisionTransformerBase
+from ..models.model_base import VisionTransformerBase
 
 logger = logging.getLogger("WeightLoader")
 

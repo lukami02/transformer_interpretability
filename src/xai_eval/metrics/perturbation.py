@@ -2,8 +2,6 @@ import torch
 import numpy as np
 from typing import Optional
 
-from models import model_base
-
 from ....scripts.config import ModelConfig
 from ..utils.perturbation import perturbation_steps, perturbation_mask_steps
 
@@ -110,7 +108,7 @@ def _auc(curve: np.ndarray, limit_ratio: Optional[float] = None) -> float:
     else:
         curve_segment = curve
 
-    return float(np.trapz(curve_segment) / max(len(curve_segment) - 1, 1))
+    return float(np.trapezoid(curve_segment) / max(len(curve_segment) - 1, 1))
 
 def compute_morf(
     image: torch.Tensor,

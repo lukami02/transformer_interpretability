@@ -7,9 +7,10 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
-from datasets import load_dataset
+from datasets import load_dataset, utils
 from .bbox_helper import download_imagenet_bbox_annotations, _build_xml_index, parse_voc_xml, get_imagenet_label_map
 
+utils.logging.set_verbosity_error() 
 
 logger = logging.getLogger("DataPipeline")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

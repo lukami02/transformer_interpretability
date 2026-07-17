@@ -28,6 +28,11 @@ def upsample_to_image_size(
     if saliency.shape[-2:] == (size, size):
         return saliency
 
+    added_channel = False
+    if saliency.dim() == 2:            
+        saliency = saliency.unsqueeze(0)
+        added_channel = True
+
     s = saliency.unsqueeze(0).float() 
     s = F.interpolate(
         s,
@@ -35,7 +40,10 @@ def upsample_to_image_size(
         mode=mode,
         align_corners=False if mode == "bilinear" else None,
     )
-    return s.squeeze(0)                
+    s = s.squeeze(0)               
+    if added_channel:
+        s = s.squeeze(0)    
+    return s        
 
 
 def saliency_to_patch_scores(

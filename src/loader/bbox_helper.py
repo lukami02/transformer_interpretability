@@ -81,6 +81,10 @@ def get_imagenet_label_map(output_dir: str, logger: logging.Logger = None) -> Di
     
     logger.info("Fetching ImageNet label map from dataset features...")
     os.makedirs(output_dir, exist_ok=True)
+
+    logging.getLogger("datasets").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("requests").setLevel(logging.WARNING)
  
     dataset = load_dataset(
         "visual-layer/imagenet-1k-vl-enriched",
