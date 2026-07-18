@@ -61,7 +61,7 @@ def _compute_curve_batched(
 
     mask_stack = perturbation_mask_steps(
         saliency, model_cfg, n_steps=n_steps, order=order,
-    ).to(device)  # [steps, num_patches] (CLS added later by the model)
+    ).to(device)  # [steps, num_patches]
  
     n_rows = mask_stack.shape[0]
     imgs_batch = image.unsqueeze(0).expand(n_rows, *image.shape)  # [steps, C, H, W]

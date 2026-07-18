@@ -49,15 +49,15 @@ class XAIEvaluator:
         """
         n = len(dataloader.dataset)
         method_results = {}
-
+ 
         spearman_saliencies: dict[str, list] = {}
-
+ 
         for method_name, method_xai in self.methods:
             self.logger.info(f"\n{'─'*50}\n {method_name}\n{'─'*50}")
             method_out, sals = self._run_method(method_name, method_xai.attribute, dataloader, n)
             method_results[method_name] = method_out
             spearman_saliencies[method_name] = sals
-
+ 
         self.logger.info(f"\n{'─'*50}\n Spearman correlation\n{'─'*50}")
         spearman = compute_spearman_matrix(
             spearman_saliencies,
@@ -66,7 +66,7 @@ class XAIEvaluator:
         )
         for pair, sp in spearman.items():
             self.logger.info(f"  {pair}: rho={sp['mean_rho']:.4f} ± {sp['std_rho']:.4f}  (n={sp['valid_count']})")
-
+ 
         return {"methods": method_results, "spearman": spearman}
 
 
@@ -81,7 +81,7 @@ class XAIEvaluator:
         morf_per_image = []
         lerf_per_image = []
         shuffle_rhos = []
-        perturb_rhos = []
+        perturb_rhos = {"most_salient": [], "least_salient": [], "random": []}
         pg_hits  = 0
         pg_total = 0
         saliencies_for_spearman = [] 
@@ -122,7 +122,7 @@ class XAIEvaluator:
                     lerf_per_image.append(lerf_res)
                     log_msg += f" | MoRF={morf_res['auc']:.4f}  LeRF={lerf_res['auc']:.4f}"
 
-                    # Patch Shuffle Test
+                    # Patch Shuffle Test (always full random permutation)
                     shuffle_res = patch_shuffle_test(
                         image=img,
                         saliency=sal,
@@ -134,20 +134,22 @@ class XAIEvaluator:
                     )
                     if not np.isnan(shuffle_res["rho"]):
                         shuffle_rhos.append(shuffle_res["rho"])
-
-                    # Single Patch Perturbation Test
-                    perturb_res = single_patch_perturbation_test(
-                        image=img,
-                        saliency=sal,
-                        target_class=lbl,
-                        xai_fn=xai_fn,
-                        model_cfg=self.cfg.model_cfg,
-                        baseline_strategy=self.cfg.baseline_strategy,
-                        device=self.cfg.device,
-                        seed=self.cfg.seed
-                    )
-                    if not np.isnan(perturb_res["rho"]):
-                        perturb_rhos.append(perturb_res["rho"])
+ 
+                    # Single Patch Perturbation Test — most_salient / least_salient / random
+                    for selection in ("most_salient", "least_salient", "random"):
+                        perturb_res = single_patch_perturbation_test(
+                            image=img,
+                            saliency=sal,
+                            target_class=lbl,
+                            xai_fn=xai_fn,
+                            model_cfg=self.cfg.model_cfg,
+                            baseline_strategy=self.cfg.baseline_strategy,
+                            device=self.cfg.device,
+                            patch_selection=selection,
+                            seed=self.cfg.seed,
+                        )
+                        if not np.isnan(perturb_res["rho"]):
+                            perturb_rhos[selection].append(perturb_res["rho"])
 
                     log_msg += f" | Shfl_rho={shuffle_res['rho']:+.3f} | Patch_rho={perturb_res['rho']:+.3f}"
 
@@ -176,13 +178,18 @@ class XAIEvaluator:
             }
             self.logger.info(f"  → Patch Shuffle Rho={result['patch_shuffle']['mean_rho']:.4f} ± {result['patch_shuffle']['std_rho']:.4f}")
 
-        if perturb_rhos:
-            result["patch_perturb"] = {
-                "mean_rho": float(np.mean(perturb_rhos)),
-                "std_rho": float(np.std(perturb_rhos))
-            }
-            self.logger.info(f"  → Single Patch Perturb Rho={result['patch_perturb']['mean_rho']:.4f} ± {result['patch_perturb']['std_rho']:.4f}")
-
+        for selection, rhos in perturb_rhos.items():
+            if rhos:
+                result[f"patch_perturb_{selection}"] = {
+                    "mean_rho": float(np.mean(rhos)),
+                    "std_rho": float(np.std(rhos))
+                }
+                self.logger.info(
+                    f"  → Single Patch Perturb ({selection}) Rho="
+                    f"{result[f'patch_perturb_{selection}']['mean_rho']:.4f} ± "
+                    f"{result[f'patch_perturb_{selection}']['std_rho']:.4f}"
+                )
+                
         if pg_total > 0:
             result["pointing_game"] = {
                 "accuracy": pg_hits / pg_total,
@@ -214,10 +221,12 @@ class XAIEvaluator:
             f"{'LeRF AUC↑':>{col_w}}"
             f"{'LeRF@30%↑':>{col_w}}"
             f"{'Shfl ρ↑':>{col_w}}"
-            f"{'Pert ρ↑':>{col_w}}"
+            f"{'Pert-Most ρ↓':>{col_w}}"
+            f"{'Pert-Least ρ↑':>{col_w}}"
+            f"{'Pert-Rand ρ':>{col_w}}"
             f"{'PG Acc↑':>{col_w}}"
         )
-        log.info("-" * (22 + col_w * 7))
+        log.info("-" * (22 + col_w * 8))
 
         for name, r in methods.items():
             if "morf" in r:
@@ -233,7 +242,19 @@ class XAIEvaluator:
                 lerf_str, lerf_30_str = "—", "—"
 
             shfl_str = f"{r['patch_shuffle']['mean_rho']:.3f}±{r['patch_shuffle']['std_rho']:.3f}" if "patch_shuffle" in r else "—"
-            pert_str = f"{r['patch_perturb']['mean_rho']:.3f}±{r['patch_perturb']['std_rho']:.3f}" if "patch_perturb" in r else "—"
+ 
+            pert_most_str = (
+                f"{r['patch_perturb_most_salient']['mean_rho']:.3f}±{r['patch_perturb_most_salient']['std_rho']:.3f}"
+                if "patch_perturb_most_salient" in r else "—"
+            )
+            pert_least_str = (
+                f"{r['patch_perturb_least_salient']['mean_rho']:.3f}±{r['patch_perturb_least_salient']['std_rho']:.3f}"
+                if "patch_perturb_least_salient" in r else "—"
+            )
+            pert_rand_str = (
+                f"{r['patch_perturb_random']['mean_rho']:.3f}±{r['patch_perturb_random']['std_rho']:.3f}"
+                if "patch_perturb_random" in r else "—"
+            )
 
             pg_str = f"{r['pointing_game']['accuracy']:.4f}" if "pointing_game" in r else "—"
 
@@ -244,7 +265,9 @@ class XAIEvaluator:
                 f"{lerf_str:>{col_w}}"
                 f"{lerf_30_str:>{col_w}}"
                 f"{shfl_str:>{col_w}}"
-                f"{pert_str:>{col_w}}"
+                f"{pert_most_str:>{col_w}}"
+                f"{pert_least_str:>{col_w}}"
+                f"{pert_rand_str:>{col_w}}"
                 f"{pg_str:>{col_w}}"
             )
 
@@ -255,4 +278,4 @@ class XAIEvaluator:
                 bar = "█" * int(max(0.0, sp["mean_rho"]) * 20)
                 log.info(f"  {pair:<30}  rho={sp['mean_rho']:+.4f} ± {sp['std_rho']:.4f}  {bar}")
 
-        log.info("=" * (22 + col_w * 7))
+        log.info("=" * (22 + col_w * 8))

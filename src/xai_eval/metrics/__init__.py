@@ -6,7 +6,7 @@ from .pointing_game import (
     scale_bbox,
 )
 from .spearman import compute_spearman, compute_spearman_matrix, spearman_single
-from .saliency_invariance import patch_shuffle_test, single_patch_perturbation_test
+from .saliency_invariance import patch_shuffle_test, single_patch_perturbation_test, run_full_perturbation_suite
 
 __all__ = [
     "compute_morf",
@@ -23,5 +23,6 @@ __all__ = [
     "spearman_single",
 
     "patch_shuffle_test",
-    "single_patch_perturbation_test"
+    "single_patch_perturbation_test",
+    "run_full_perturbation_suite",
 ]
