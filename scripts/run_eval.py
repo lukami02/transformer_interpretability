@@ -1,7 +1,6 @@
 from __future__ import annotations
 import json
 
-from xai.black_box.rise import RISE
 from .config import parse_args, ModelConfig
 from ..src.xai_eval.evaluate import XAIEvaluator
 from ..src.loader.model_loader import create_model
@@ -11,8 +10,8 @@ from ..src.xai import *
 ALL_METHODS = {
     "Vanilla Gradient": VanillaGradient,
     "Gradient X Input": GradientXInput,
-    "Integrated Gradients": IntegratedGradients,
-    "Smooth Gradient": SmoothGrad,   
+    #"Integrated Gradients": IntegratedGradients,
+    #"Smooth Gradient": SmoothGrad,   
     "GradCAM": GradCAM,
     "Attention Rollout": AttentionRollout,
     "Transformer Attribution": TransformerAttribution,

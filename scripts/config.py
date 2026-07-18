@@ -107,8 +107,9 @@ class RunConfig:
 
     # XAI methods 
     methods: List[str] = field(default_factory=lambda: [
-        "Vanilla Gradient", "Gradient X Input", "Integrated Gradients", 
-        "Smooth Gradient", "GradCAM", "Attention Rollout", 
+        "Vanilla Gradient", "Gradient X Input", 
+        #"Integrated Gradients", "Smooth Gradient", 
+        "GradCAM", "Attention Rollout", 
         "Transformer Attribution", "GMAR", "LRP",
         "RISE", "SHAP"
     ])
@@ -121,7 +122,7 @@ class RunConfig:
     pointing_multi_bbox: bool = False
 
     # Black-box XAI hyperparameters
-    black_box_batch: int = 256
+    black_box_batch: int = 192
     rise_mask: int = 8000
     rise_mask_prob: float = 0.5
     kernel_shap_mask: int = 2000

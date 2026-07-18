@@ -84,11 +84,11 @@ class KernelSHAP(XAIMethod):
         Solves the weighted linear system to compute Shapley values.
         """
         M = self._masks.shape[1]
-        y = scores - f_empty  # (N,)
+        y = (scores - f_empty).view(-1)  # (N,)
 
-        sqrt_w = torch.sqrt(self._weights).unsqueeze(1) 
-        A = self._masks * sqrt_w                  
-        b = y * sqrt_w.squeeze(1)       
+        sqrt_w = torch.sqrt(self._weights).view(-1)
+        A = self._masks * sqrt_w.unsqueeze(1)              
+        b = y * sqrt_w
 
         alpha = self.ridge_alpha
         AtA = A.T @ A + alpha * torch.eye(M, device=A.device)
@@ -120,7 +120,7 @@ class KernelSHAP(XAIMethod):
                 logits = model(X.expand(masks.shape[0], -1, -1, -1), masks)
                 scores.append(logits[:, target].detach().cpu())
 
-        scores = torch.cat(scores, dim=0)
+        scores = torch.cat(scores, dim=0).view(-1)
 
         f_empty = scores[0].item() 
         f_full = scores[1].item()
