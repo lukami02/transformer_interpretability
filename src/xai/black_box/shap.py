@@ -33,17 +33,45 @@ class KernelSHAP(XAIMethod):
 
         self.model.set_mode("shap")
 
+    
+    def _size_distribution(self) -> torch.Tensor:
+        """
+        Shapley kernel size distribution:
+            p(k) = (M - 1) / ( C(M, k) * k * (M - k) ) for k = 1, ..., M-1
+        """
+        M = self.num_patches
+        sizes = torch.arange(1, M, dtype=torch.float32)
+
+        log_binom = (
+            torch.lgamma(torch.tensor(float(M)) + 1)
+            - torch.lgamma(sizes + 1)
+            - torch.lgamma(torch.tensor(float(M)) - sizes + 1)
+        )
+        binom = torch.exp(log_binom)
+
+        w = (M - 1) / (binom * sizes * (M - sizes))
+        p = w / w.sum()
+        return p
+    
 
     def _generate_masks(self) -> torch.Tensor:
-        masks = torch.zeros(self.n_masks, self.num_patches)
-        sizes = torch.randint(1, self.num_patches, (self.n_masks,))
-        for i in range(2, self.n_masks):
-            idx = torch.randperm(self.num_patches)[: sizes[i]]
-            masks[i, idx] = 1.0
+        M = self.num_patches
+        masks = torch.zeros(self.n_masks, M)
+        n_random = self.n_masks - 2
+
+        if n_random > 0:
+            p = self._size_distribution()  
+            size_idx = torch.multinomial(p, n_random, replacement=True)
+            sizes = size_idx + 1
+
+            for i in range(n_random):
+                k = int(sizes[i].item())
+                idx = torch.randperm(M)[:k]
+                masks[2 + i, idx] = 1.0
 
         masks[0] = 0.0
         masks[1] = 1.0
-        return masks 
+        return masks
 
 
     def _kernel_weights(self) -> torch.Tensor:
@@ -51,28 +79,10 @@ class KernelSHAP(XAIMethod):
         Standard Shapley kernel weight:
             w(z) = (M - 1) / ( C(M, |z|) * |z| * (M - |z|) )
         """
-        M = self._masks.shape[1]
-        weight_table = torch.zeros(M + 1, dtype=torch.float32, device=self._masks.device)
-
-        valid_sizes = torch.arange(1, M, dtype=torch.float32, device=self._masks.device)
-        log_binom = (
-            torch.lgamma(torch.tensor(float(M), device=self._masks.device) + 1)
-            - torch.lgamma(valid_sizes + 1)
-            - torch.lgamma(torch.tensor(float(M), device=self._masks.device) - valid_sizes + 1)
-        )
-        binom = torch.exp(log_binom)
-        
-        weight_table[1:M] = (M - 1) / (binom * valid_sizes * (M - valid_sizes))
-
-        big = weight_table[1:M].max() * 1e6 if valid_sizes.any() else torch.tensor(1e6, device=self._masks.device)
-        weight_table[0] = big
-        weight_table[M] = big
-
-        sizes = self._masks.sum(dim=1).long() 
-        weights = weight_table[sizes]
+        n = self._masks.shape[0]
+        weights = torch.ones(n, dtype=torch.float32, device=self._masks.device)
 
         return weights
-
 
     def _solve_shapley_values(
         self,
@@ -84,17 +94,27 @@ class KernelSHAP(XAIMethod):
         Solves the weighted linear system to compute Shapley values.
         """
         M = self._masks.shape[1]
-        y = (scores - f_empty).view(-1)  # (N,)
+        solve_device = torch.device("cpu")
 
-        sqrt_w = torch.sqrt(self._weights).view(-1)
-        A = self._masks * sqrt_w.unsqueeze(1)              
+        y = (scores - f_empty).view(-1).to(solve_device)
+        sqrt_w = torch.sqrt(self._weights).view(-1).to(solve_device)
+        A = self._masks.to(solve_device) * sqrt_w.unsqueeze(1)
         b = y * sqrt_w
 
         alpha = self.ridge_alpha
-        AtA = A.T @ A + alpha * torch.eye(M, device=A.device)
+        AtA = A.T @ A + alpha * torch.eye(M, device=solve_device)
         Atb = A.T @ b
 
-        phi = torch.linalg.solve(AtA, Atb)  
+        total_effect = f_full - f_empty
+        ones = torch.ones(M, 1, device=solve_device)
+
+        top = torch.cat([AtA, ones], dim=1)
+        bottom = torch.cat([ones.T, torch.zeros(1, 1, device=solve_device)], dim=1)
+        KKT = torch.cat([top, bottom], dim=0)
+        rhs = torch.cat([Atb, torch.tensor([total_effect], device=solve_device)])
+
+        sol = torch.linalg.solve(KKT, rhs)
+        phi = sol[:M]
         return phi
 
 
