@@ -131,7 +131,7 @@ class RunConfig:
     # Runtime 
     device: str = "auto"              # "auto" | "cuda" | "cpu"
     verbose: bool = True
-    save_results: bool = False
+    save_results: bool = True
     verbose_step: int = 10
 
     def resolved_device(self) -> str:
@@ -208,7 +208,8 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
     g = parser.add_argument_group("Runtime")
     g.add_argument("--device",        type=str,  default=RunConfig.device, choices=["auto", "cuda", "cpu"])
     g.add_argument("--no-verbose",    action="store_true")
-    g.add_argument("--save-results",  action="store_true", help="Save results to --results-dir as JSON")
+    g.add_argument("--save-results", action=argparse.BooleanOptionalAction, 
+                   default=RunConfig.save_results, help="Save results to --results-dir as JSON")
     g.add_argument("--verbose-step",  type=int, default=RunConfig.verbose_step)
 
     args = parser.parse_args(argv)

@@ -67,7 +67,7 @@ class XAIEvaluator:
         for pair, sp in spearman.items():
             self.logger.info(f"  {pair}: rho={sp['mean_rho']:.4f} ± {sp['std_rho']:.4f}  (n={sp['valid_count']})")
  
-        return {"methods": method_results, "spearman": spearman}
+        return {"methods": method_results, "spearman": spearman, "saliencies": spearman_saliencies}
 
 
     def _run_method(
