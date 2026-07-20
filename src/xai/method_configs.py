@@ -42,10 +42,13 @@ METHOD_CONFIGS: dict[str, MethodConfig] = {
     # ------------------------------------------------------------------
 
     "grad": MethodConfig(
+        cache_attn_gradients=True,
         requires_grad=True,
     ),
 
     "grad_input": MethodConfig(
+        cache_attn_gradients=True,
+        cache_attn_weights=True,
         requires_grad=True,
     ),
 
