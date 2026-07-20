@@ -95,7 +95,7 @@ class RunConfig:
     results_dir: Path = Path(__file__).resolve().parents[1] / "results"
 
     # Data 
-    num_samples: int = 50
+    num_samples: int = 1000
     seed: int = 42
     batch_size: int = 1          
     num_workers: int = 4
@@ -107,11 +107,15 @@ class RunConfig:
 
     # XAI methods 
     methods: List[str] = field(default_factory=lambda: [
-        "Vanilla Gradient", "Gradient X Input", 
+        #"Vanilla Gradient", "Gradient X Input", 
         #"Integrated Gradients", "Smooth Gradient", 
-        "GradCAM", "Attention Rollout", 
-        "Transformer Attribution", "GMAR", "LRP",
-        "RISE", "SHAP"
+        #"GradCAM", "Attention Rollout", 
+        #"Transformer Attribution",# 
+        #"GMAR", 
+        #"GMARAttribution",
+        #"LRP",
+        #"RISE", 
+        "SHAP"
     ])
     
     # EvalConfig hyperparameters 
@@ -122,16 +126,16 @@ class RunConfig:
     pointing_multi_bbox: bool = False
 
     # Black-box XAI hyperparameters
-    black_box_batch: int = 192
-    rise_mask: int = 8000
+    black_box_batch: int = 256
+    rise_mask: int = 4000
     rise_mask_prob: float = 0.5
-    kernel_shap_mask: int = 2000
-    kernel_shap_ridge_alpha: float = 1e-3
+    kernel_shap_mask: int = 6000
+    kernel_shap_ridge_alpha: float = 1e-5
 
     # Runtime 
     device: str = "auto"              # "auto" | "cuda" | "cpu"
     verbose: bool = True
-    save_results: bool = False
+    save_results: bool = True
     verbose_step: int = 10
 
     def resolved_device(self) -> str:
@@ -208,7 +212,9 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
     g = parser.add_argument_group("Runtime")
     g.add_argument("--device",        type=str,  default=RunConfig.device, choices=["auto", "cuda", "cpu"])
     g.add_argument("--no-verbose",    action="store_true")
-    g.add_argument("--save-results",  action="store_true", help="Save results to --results-dir as JSON")
+    g.add_argument(
+    "--save-results", action=argparse.BooleanOptionalAction, default=RunConfig.save_results, 
+                        help="Save results to --results-dir as JSON",)
     g.add_argument("--verbose-step",  type=int, default=RunConfig.verbose_step)
 
     args = parser.parse_args(argv)

@@ -7,6 +7,7 @@ from .gradient.grad_cam import GradCAM
 from .attention.rollout import AttentionRollout
 from .attention.transformer_attribution import TransformerAttribution
 from .attention.gmar import GMAR
+from .attention.gmar_attribution import GMARAttribution
 
 from .black_box.rise import RISE
 from .black_box.shap import KernelSHAP
@@ -24,6 +25,7 @@ __all__ = [
     "AttentionRollout",
     "TransformerAttribution",   
     "GMAR",
+    "GMARAttribution",
     # LRP
     "LRP",
     # Black-box

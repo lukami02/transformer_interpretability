@@ -84,6 +84,10 @@ METHOD_CONFIGS: dict[str, MethodConfig] = {
         cache_attn_gradients=True,
     ),
 
+    "gmar_attribution": MethodConfig(
+        lrp_hooks=True,
+        cache_attn_gradients=True,
+    ),
 
     # ------------------------------------------------------------------
     # LRP

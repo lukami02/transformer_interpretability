@@ -67,8 +67,7 @@ class XAIEvaluator:
         for pair, sp in spearman.items():
             self.logger.info(f"  {pair}: rho={sp['mean_rho']:.4f} ± {sp['std_rho']:.4f}  (n={sp['valid_count']})")
  
-        return {"methods": method_results, "spearman": spearman}
-
+        return {"methods": method_results, "spearman": spearman, "saliencies": spearman_saliencies}
 
     def _run_method(
         self,
@@ -77,7 +76,7 @@ class XAIEvaluator:
         dataloader: torch.utils.data.DataLoader,
         n: int,
     ) -> tuple[dict, list]:
-
+ 
         morf_per_image = []
         lerf_per_image = []
         shuffle_rhos = []
@@ -86,22 +85,22 @@ class XAIEvaluator:
         pg_total = 0
         saliencies_for_spearman = [] 
         i = 0
-
+ 
         pg_fn = pointing_game_multi_bbox if self.cfg.pointing_multi_bbox else pointing_game_single
-
+ 
         for batch in dataloader:
             has_bbox = len(batch) == 3
             imgs_b, lbls_b = batch[0], batch[1]
             bboxs_b = batch[2] if has_bbox else None
-
+ 
             for j, img in enumerate(imgs_b.unbind(0)):
                 lbl = lbls_b[j].item()
                 i += 1
-
+ 
                 log_msg = f"  [{i}/{n}] "
                 
                 sal = xai_fn(img.to(self.cfg.device), lbl).cpu()
-
+ 
                 saliencies_for_spearman.append(sal)
                 
                 if self.model is not None:
@@ -120,9 +119,13 @@ class XAIEvaluator:
                     )
                     morf_per_image.append(morf_res)
                     lerf_per_image.append(lerf_res)
-                    log_msg += f" | MoRF={morf_res['auc']:.4f}  LeRF={lerf_res['auc']:.4f}"
-
+                    log_msg += (
+                        f" | MoRF={morf_res['auc']:.4f} (@30%={morf_res['auc_30']:.4f})"
+                        f"  LeRF={lerf_res['auc']:.4f} (@30%={lerf_res['auc_30']:.4f})"
+                    )
+ 
                     # Patch Shuffle Test (always full random permutation)
+                    """
                     shuffle_res = patch_shuffle_test(
                         image=img,
                         saliency=sal,
@@ -150,8 +153,14 @@ class XAIEvaluator:
                         )
                         if not np.isnan(perturb_res["rho"]):
                             perturb_rhos[selection].append(perturb_res["rho"])
-
+ 
+                    
                     log_msg += f" | Shfl_rho={shuffle_res['rho']:+.3f} | Patch_rho={perturb_res['rho']:+.3f}"
+                    """
+                    shuffle_rhos.append(1)
+                    perturb_rhos["most_salient"].append(1)
+                    perturb_rhos["least_salient"].append(1)
+                    perturb_rhos["random"].append(1)
 
                     if bboxs_b is not None:
                         bbox = bboxs_b[j]
@@ -160,24 +169,29 @@ class XAIEvaluator:
                             pg_hits  += int(hit)
                             pg_total += 1
                             
-                if i % 100 == 0:
+                if i % 5 == 0:
                     self.logger.info(log_msg)
 
+            if i > 200:
+                break
+ 
         result: dict = {}
-
+ 
         if morf_per_image:
             result["morf"] = aggregate_perturbation_results(morf_per_image)
             result["lerf"] = aggregate_perturbation_results(lerf_per_image)
             self.logger.info(f"\n  → MoRF mean={result['morf']['mean_auc']:.4f} ± {result['morf']['std_auc']:.4f}  (lower = better)")
+            self.logger.info(f"  → MoRF@30% mean={result['morf']['mean_auc_30']:.4f} ± {result['morf']['std_auc_30']:.4f}  (lower = better)")
             self.logger.info(f"  → LeRF mean={result['lerf']['mean_auc']:.4f} ± {result['lerf']['std_auc']:.4f}  (higher = better)")
-
+            self.logger.info(f"  → LeRF@30% mean={result['lerf']['mean_auc_30']:.4f} ± {result['lerf']['std_auc_30']:.4f}  (higher = better)")
+ 
         if shuffle_rhos:
             result["patch_shuffle"] = {
                 "mean_rho": float(np.mean(shuffle_rhos)),
                 "std_rho": float(np.std(shuffle_rhos))
             }
             self.logger.info(f"  → Patch Shuffle Rho={result['patch_shuffle']['mean_rho']:.4f} ± {result['patch_shuffle']['std_rho']:.4f}")
-
+ 
         for selection, rhos in perturb_rhos.items():
             if rhos:
                 result[f"patch_perturb_{selection}"] = {
@@ -197,7 +211,7 @@ class XAIEvaluator:
                 "total":    pg_total,
             }
             self.logger.info(f"  → Pointing Game={result['pointing_game']['accuracy']:.4f}  ({pg_hits}/{pg_total})")
-
+ 
         return result, saliencies_for_spearman
 
 

@@ -16,7 +16,7 @@ class KernelSHAP(XAIMethod):
         model_base: Optional[nn.Module] = None,
         n_masks: int = 2000,
         batch_size: int = 1,
-        ridge_alpha: float = 1e-3,
+        ridge_alpha: float = 1e-5,
     ):
         super().__init__(model)
         self.model_base = model_base
@@ -127,7 +127,7 @@ class KernelSHAP(XAIMethod):
             self._weights = self._kernel_weights()
         X = self._prepare_input(x)
 
-        logits = self._forward(x)
+        logits = self._forward(X)
         if target is None:
             target = logits.argmax(dim=1).item()
 

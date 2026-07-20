@@ -30,4 +30,7 @@ class LRP(XAIMethod):
         R[0, target] = 1.0
 
         saliency = self.model.relprop(R, alpha=self.alpha, patch_level=patch_level)
+        for block in self.model.blocks:
+            block.attn._attn_relevance.clear()
+
         return saliency

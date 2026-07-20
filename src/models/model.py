@@ -397,11 +397,11 @@ class VisionTransformer(nn.Module):
             R_patch = R_patch.sum(dim=-1)
             grid = int(R_patch.shape[1] ** 0.5)
             R_patch = R_patch.reshape(R_patch.shape[0], grid, grid)
-            return R_patch
+            return R_patch.detach()
         else:
             R_pixel = self.patch_embed.relprop(R_patch, **kwargs)
             R_pixel = R_pixel.sum(dim=1)
-            return R_pixel
+            return R_pixel.detach()
     
     def cleanup(self):
         for module in self.modules():
