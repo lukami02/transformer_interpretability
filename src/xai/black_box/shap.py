@@ -127,7 +127,7 @@ class KernelSHAP(XAIMethod):
             self._weights = self._kernel_weights()
         X = self._prepare_input(x)
 
-        logits = self._forward(x)
+        logits = self._forward(X)
         if target is None:
             target = logits.argmax(dim=1).item()
 
