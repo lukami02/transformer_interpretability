@@ -390,15 +390,16 @@ class VisionTransformer(nn.Module):
         for block in reversed(self.blocks):
             R = block.relprop(R, **kwargs)
 
-        (R_patch, R_pos) = self.add.relprop(R, **kwargs)
-        R_patch = R_patch[:, 1:]  # Remove the class token
-
         if patch_level:
-            R_patch = R_patch.sum(dim=-1)
-            grid = int(R_patch.shape[1] ** 0.5)
-            R_patch = R_patch.reshape(R_patch.shape[0], grid, grid)
-            return R_patch.detach()
+            R = R[:, 1:]  # Remove the class token
+            R = R.sum(dim=-1)
+            grid = int(R.shape[1] ** 0.5)
+            R = R.reshape(R.shape[0], grid, grid)
+            return R.detach()
+
         else:
+            (R_patch, R_pos) = self.add.relprop(R, **kwargs)
+            R_patch = R_patch[:, 1:]  # Remove the class token
             R_pixel = self.patch_embed.relprop(R_patch, **kwargs)
             R_pixel = R_pixel.sum(dim=1)
             return R_pixel.detach()

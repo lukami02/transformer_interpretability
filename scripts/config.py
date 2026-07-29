@@ -127,7 +127,7 @@ class RunConfig:
 
     # Black-box XAI hyperparameters
     black_box_batch: int = 256
-    rise_mask: int = 4000
+    rise_mask: int = 5000
     rise_mask_prob: float = 0.5
     kernel_shap_mask: int = 6000
     kernel_shap_ridge_alpha: float = 1e-5

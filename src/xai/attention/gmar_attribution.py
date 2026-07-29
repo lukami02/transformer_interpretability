@@ -2,53 +2,48 @@ from typing import Optional
 import torch
 from ..base import XAIMethod
 
-
-class GMARAttribution(XAIMethod):
+class GMARAttribution(XAIMethod):  
     """
-    Gradient-weighted Multi-head Attention Rollout with LRP relevance.
-
-    Combines GMAR's gradient-based head weighting with LRP relevance
-    propagation for the rollout step (instead of raw attention weights).
+    GMAR Attribution.
+    "Transformer Interpretability Beyond Attention Visualization"
 
     Algorithm:
     1. Full forward pass — model stores attention weights
-    2. Full LRP backward pass (gives per-head relevance R_l)
-    3. Compute gradient-based head weights (as in GMAR):
-        G_h = grad(score, A_h)
-        L1: GR_h = mean(|G_h|)  per head
-        L2: GR_h = sqrt(mean(G_h**2)) per head
-        w = GR_h / sum(GR_h)
-    4. Weighted rollout using LRP relevance instead of attention:
-        R_weighted = (R_l @ W).sum(dim=0)
-        R_weighted = relu(R_weighted) + alpha * I   (optional relu, see note)
-        C = C @ (R_weighted / R_weighted.sum(-1))
+    2. Full LRP backward pass
+    3. For each block l, compute per-head gradient weights (GMAR-style):
+           GR_h = mean(|G_h|)          [l1]
+           GR_h = sqrt(mean(G_h**2))   [l2]
+           w_h  = GR_h / sum(GR_h)
+       then combine heads with those weights instead of a plain mean:
+           cam_l = sum_heads( w_h * relu( G_h * R_h ) )
+    4. Rollout with residual blending starting from start_layer:
+           C  =  I                          
+           for l = start_layer … L:
+               Ã_l = 0.5 * cam_l + 0.5 * I
+               C   = Ã_l @ C
     """
 
     def __init__(
-        self,
-        model,
+        self, 
+        model, 
         start_layer: int = 0,
         norm: str = "l1",
-        alpha: float = 0.5,
-        apply_relu: bool = True,
     ):
         super().__init__(model)
         assert norm in ("l1", "l2"), f"Invalid normalization method: {norm}"
         self.start_layer = start_layer
         self.norm = norm
-        self.alpha = alpha
-        self.apply_relu = apply_relu
-        self.model.set_mode("gmar_attribution")
-
+        self.model.set_mode("transformer_attribution")
+    
     def attribute(
-        self,
-        x: torch.Tensor,
+        self, 
+        x: torch.Tensor, 
         target: Optional[int] = None,
-        alpha: float = 1.0,
+        alpha: float = 1.0, 
         **kwargs
     ) -> torch.Tensor:
-        if self.model._method_name != "gmar_attribution":
-            self.model.set_mode("gmar_attribution")
+        if self.model._method_name != "transformer_attribution":
+            self.model.set_mode("transformer_attribution")
 
         X = self._prepare_input(x, requires_grad=True)
 
@@ -62,36 +57,35 @@ class GMARAttribution(XAIMethod):
 
         num_patches = self.model.patch_embed.num_patches + 1
 
-        attn_relevance = self.model.get_attn_relevance()  
-        attn_gradients_raw = self.model.get_attn_gradients()  
+        attn_weights = self.model.get_attn_weights()
+        attn_relevance = self.model.get_attn_relevance()
+        attn_gradients = self.model.get_attn_gradients()
 
-        attn_gradients = torch.stack(
-            [grads[0].squeeze(0).detach() for grads in attn_gradients_raw],
-            dim=0
-        )
+        cams = []
+        for weight, gradients, relevances in zip(attn_weights, attn_gradients, attn_relevance):
+            weight = weight[0][0]        # [H, N, N]
+            gradients = gradients[0][0]  # [H, N, N]
+            relevances = relevances[0][0]  # [H, N, N]
 
-        if self.norm == "l1":
-            GR = attn_gradients.abs().mean(dim=(2, 3))
-        else:
-            GR = torch.sqrt((attn_gradients ** 2).mean(dim=(2, 3)))
+            # GMAR-style per-head weighting
+            if self.norm == "l1":
+                GR = gradients.abs().mean(dim=(1, 2))
+            else:
+                GR = torch.sqrt((gradients**2).mean(dim=(1, 2)))
+            w_h = GR / (GR.sum() + 1e-6)
+            w_h = w_h.reshape(-1, 1, 1)  # [H, 1, 1]
 
-        w = GR / (GR.sum(dim=1, keepdim=True) + 1e-6)  # [L, H]
+            head_cams = (gradients * relevances).clamp(min=0)  # [H, N, N]
+            cam = (head_cams * w_h).sum(dim=0)  # weighted combination instead of plain mean
+
+            cams.append(cam)
 
         C = torch.eye(num_patches, device=self.device)
-
-        for layer_relevance, head_weights in zip(attn_relevance[self.start_layer:], w[self.start_layer:]):
-            layer_relevance = layer_relevance[0][0].detach()
-            W = head_weights.reshape(-1, 1, 1)
-
-            R_weighted = (layer_relevance * W).sum(dim=0)
-
-            if self.apply_relu:
-                R_weighted = R_weighted.clamp(min=0)
-
-            R_weighted = R_weighted + self.alpha * torch.eye(num_patches, device=self.device)
-            R_weighted = R_weighted / R_weighted.sum(dim=-1, keepdim=True).clamp(min=1e-9)
-
-            C = R_weighted @ C
+        for cam in cams[self.start_layer:]:
+            I = torch.eye(cam.size(-1), device=self.device)
+            cam_blended = 0.5 * cam + 0.5 * I
+            cam_blended = cam_blended / cam_blended.sum(dim=-1, keepdim=True).clamp(min=1e-9)
+            C = cam_blended @ C
 
         patch_embed = self.model.patch_embed
         grid_h = patch_embed.img_size[0] // patch_embed.patch_size[0]
