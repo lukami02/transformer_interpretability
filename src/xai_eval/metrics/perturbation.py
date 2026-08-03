@@ -180,6 +180,7 @@ def aggregate_perturbation_results(per_image_results: list) -> dict:
         "mean_auc_30":    float(np.mean(aucs_30)),
         "std_auc_30":     float(np.std(aucs_30)),
         "mean_curve":     np.mean(padded, axis=0),
+        "std_curve":      np.std(padded, axis=0),
         "per_image_auc":  aucs,
         "per_image_auc_30": aucs_30,
     }

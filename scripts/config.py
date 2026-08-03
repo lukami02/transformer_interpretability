@@ -109,9 +109,9 @@ class RunConfig:
     methods: List[str] = field(default_factory=lambda: [
         "Vanilla Gradient", "Gradient X Input", 
         #"Integrated Gradients", "Smooth Gradient", 
-        "GradCAM", "Attention Rollout", 
-        "Transformer Attribution", "GMAR", "LRP",
-        "RISE", "SHAP"
+       # "GradCAM", "Attention Rollout", 
+       # "Transformer Attribution", "GMAR", "LRP",
+       # "RISE", "SHAP"
     ])
     
     # EvalConfig hyperparameters 

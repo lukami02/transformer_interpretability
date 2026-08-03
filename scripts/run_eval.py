@@ -74,12 +74,16 @@ if __name__ == "__main__":
                     "std_auc": _stat(data, "morf", "std_auc"),
                     "mean_auc_30": _stat(data, "morf", "mean_auc_30"),
                     "std_auc_30": _stat(data, "morf", "std_auc_30"),
+                    "mean_curve": _stat(data, "morf", "mean_curve").tolist(),
+                    "std_curve": _stat(data, "morf", "std_curve").tolist(),
                 },
                 "lerf": {
                     "mean_auc": _stat(data, "lerf", "mean_auc"),
                     "std_auc": _stat(data, "lerf", "std_auc"),
                     "mean_auc_30": _stat(data, "lerf", "mean_auc_30"),
                     "std_auc_30": _stat(data, "lerf", "std_auc_30"),
+                    "mean_curve": _stat(data, "lerf", "mean_curve").tolist(),
+                    "std_curve": _stat(data, "lerf", "std_curve").tolist(),
                 },
                 "patch_shuffle": {
                     "mean_rho": _stat(data, "patch_shuffle", "mean_rho"),
