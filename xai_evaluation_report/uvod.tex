@@ -1,0 +1,55 @@
+\section{Uvod}
+
+Modeli dubokog učenja postali su nezaobilazni alat u rešavanju složenih zadataka kompjuterske vizije, 
+obrade prirodnog jezika i brojnih drugih oblasti. Posebno mesto među njima zauzimaju 
+\textit{Vision Transformer} (ViT) modeli \cite{dosovitskiy2021vit}, koji su u poslednjih nekoliko 
+godina preuzeli primat od konvolucionih neuronskih mreža (\textit{Convolutional Neural Networks}, CNN) 
+na većini standardnih referentnih skupova podataka. Zahvaljujući mehanizmu pažnje 
+(\textit{self-attention}) \cite{vaswani2017attention}, ViT modeli su sposobni da modeluju globalne 
+zavisnosti između delova ulazne slike, što im omogućava izuzetno visoku tačnost klasifikacije.
+
+Međutim, povećanje složenosti modela dolazi po cenu smanjene interpretabilnosti. Što je model sposobniji, to je teže razumeti na osnovu čega donosi odluke. Ovaj nedostatak transparentnosti predstavlja ozbiljnu prepreku za primenu dubokih modela u kritičnim oblastima poput medicine, autonomnih sistema i finansija \cite{samek2019explainable}, zbog čega je razvoj pouzdanih metoda za njihovo objašnjavanje postao aktivan i važan pravac istraživanja.
+
+U tom kontekstu, literatura otvara dva ključna pitanja koja dodatno motivišu rad u ovoj oblasti. Prvo se odnosi na večiti kompromis između performansi i transparentnosti — da li su tačnost i interpretabilnost modela nužno u suprotnosti, ili je moguće postići oba cilja istovremeno \cite{samek2019explainable}. Drugo, još specifičnije pitanje, duboko zalazi u samu prirodu Transformer arhitektura: da li sirove mape pažnje (\textit{attention maps}) zaista verno odražavaju unutrašnji proces donošenja odluka ili predstavljaju tek nusproizvod složene arhitekture \cite{jain2019attention, wiegreffe2019attention}. Upravo ta neizvesnost i opravdana sumnja u potpunu pouzdanost bazičnih mapa pažnje čine centralnu motivaciju za razvoj sofisticiranijih, arhitektonski specifičnih metoda interpretabilnosti, čijoj je analizi i evaluaciji posvećen ovaj rad.
+
+Cilj ovog rada je sistematičan pregled, implementacija i komparativna analiza metoda za 
+interpretabilnost primenjenih na ViT modele. Metode su organizovane u tri grupe prema 
+pristupu koji koriste za generisanje objašnjenja. Prvu grupu čine \textbf{metode zasnovane 
+na gradijentima} (\textit{gradient-based methods}), koje koriste informacije o gradijentima 
+izlaza modela u odnosu na ulaz — poput metode gradijenata (\textit{Vanilla Gradient}) 
+\cite{simonyan2014deep} i proizvoda ulaza i gradijenata (\textit{Input $\times$ Gradient}). 
+Drugu grupu čine \textbf{metode zasnovane na mehanizmu pažnje} 
+(\textit{attention-based methods}), koje su specifične za \textit{Transformer} arhitekturu 
+i zahtevaju pristup unutrašnjim parametrima modela — \textit{Attention Rollout} 
+\cite{abnar2020quantifying} i metoda zasnovana na relevantnosti propagiranoj kroz mehanizam 
+pažnje \cite{chefer2021transformer}. Treću grupu čine \textbf{metode nezavisne od modela} 
+(\textit{model-agnostic}), koje tretiraju model kao crnu kutiju i ne zahtevaju pristup 
+unutrašnjim parametrima, poput metoda SHAP (\textit{SHapley Additive exPlanations}) \cite{lundberg2017shap} i RISE (\textit{Randomized Input Sampling for Explanation}) \cite{petsiuk2018rise}.
+
+Evaluacija metoda sprovodi se na javno dostupnom ViT-Base modelu \cite{dosovitskiy2021vit} 
+treniranom na skupu podataka ImageNet \cite{russakovsky2015imagenet}, korišćenjem kako 
+klasičnih kvantitativnih metrika — MoRF, LeRF i \textit{Pointing Game} \cite{samek2017evaluating, 
+zhang2018pointing} — tako i analize međusobne sličnosti metoda pomoću Spirmanove korelacije 
+i vizuelnog poređenja dobijenih mapa značajnosti (\textit{saliency maps}).
+
+\subsection{Očekivani doprinosi rada}
+
+Očekivani doprinosi ovog rada su:
+\begin{enumerate}
+    \item \textbf{Komparativna analiza} — sistematično poređenje metoda na istom modelu, 
+    istim slikama i istim uslovima. Radovi koji predlažu ove metode ih međusobno ne porede 
+    na ovaj način, pa ovakva analiza sama po sebi predstavlja doprinos.
+    
+    \item \textbf{Pregled evolucije metoda} — čitalac se vodi od najjednostavnijih gradijentnih 
+    pristupa ka sofisticiranijim metodama zasnovanim na mehanizmu pažnje, uz objašnjenje 
+    motivacije za svaki korak u toj evoluciji.
+    
+    \item \textbf{Analiza uticaja dostupnosti unutrašnjih parametara na kvalitet objašnjenja} — pokazuje se šta se dobija, a šta gubi kada nije dostupan uvid u unutrašnje parametre modela, na konkretnom primeru poređenja odabranih metoda specifičnih za arhitekturu i metoda SHAP i RISE.
+
+    \item \textbf{Testovi robustnosti specifični za ViT arhitekturu} — predložena su dva nova testa evaluacije koji uzimaju u obzir specifičnosti mehanizma pažnje: test globalnog mešanja pečeva i test nasumičnog peča, koji ispituju stabilnost mapa značajnosti na perturbacije karakteristične za Transformer arhitekture.
+
+\end{enumerate}
+
+\subsection{Struktura rada}
+
+Ostatak ovog master rada organizovan je u šest tematskih poglavlja. U \textbf{drugom poglavlju} opisana je teorijska osnova i arhitektura \textit{Vision Transformer} modela, uključujući mehanizam pažnje i procesiranje slika u obliku tokena. \textbf{Treće poglavlje} posvećeno je metodama koje zahtevaju delimičan ili potpun uvid u arhitekturu modela — detaljno su izložene gradijentne metode, kao i naprednije metode zasnovane na mehanizmu pažnje, prateći njihovu evoluciju i matematičku formulaciju. U \textbf{četvrtom poglavlju} analiziraju se metode nezavisne od arhitekture modela (\textit{model-agnostic}), sa detaljnijom obradom metoda SHAP i RISE. \textbf{Peto poglavlje} predstavlja centralni eksperimentalni segment rada, u kojem su opisani korišćeni skupovi podataka, eksperimentalno okruženje, implementacioni detalji, kao i rezultati kvantitativne i kvalitativne evaluacije kroz primenu definisanih metrika i korelacionih analiza. Na kraju, \textbf{šesto poglavlje} donosi zaključna razmatranja, sumira postignute rezultate i nudi smernice za dalja istraživanja u oblasti interpretabilnosti dubokih vizuelnih modela.

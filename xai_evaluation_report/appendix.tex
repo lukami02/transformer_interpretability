@@ -1,0 +1,212 @@
+\section{Matematička izvođenja i dokazi svojstava relevantnosti}
+
+\subsection{Izvođenje opšte DTD formule}
+\label{appendix:deep_taylor}
+
+Neka je $L_i(\mathbf{u}, \mathbf{v})$ funkcija aktivacije neurona $i$ u sloju $l+1$, gde je $\mathbf{u}$ ulazni vektor, a $\mathbf{v}$ tenzor težina. Tejlorov razvoj prvog reda oko korene tačke $\tilde{\mathbf{u}}$ (za koju važi $L_i(\tilde{\mathbf{u}}, \mathbf{v}) = 0$) glasi:
+
+\begin{equation*}
+    L_i(\mathbf{u}, \mathbf{v}) \approx \sum_j \left. \frac{\partial L_i}{\partial u_j} \right|_{\tilde{\mathbf{u}}} (u_j - \tilde{u}_j)
+\end{equation*}
+
+Pošto su izvodi u korenoj tački teški za računanje, koristi se pretpostavka lokalne linearnosti (karakteristična za ReLU mreže), prema kojoj je gradijent konstantan. Zbog toga se izvod u tački $\tilde{\mathbf{u}}$ zamenjuje izvodom u trenutnoj tački $\mathbf{u}$:
+
+\begin{equation*}
+    \left. \frac{\partial L_i}{\partial u_j} \right|_{\tilde{\mathbf{u}}} = \frac{\partial L_i(\mathbf{u}, \mathbf{v})}{\partial u_j}
+\end{equation*}
+
+Doprinos ulaznog neurona $j$ aktivaciji izlaznog neurona $i$ tada postaje:
+
+\begin{equation*}
+    c_{ji} = \frac{\partial L_i(\mathbf{u}, \mathbf{v})}{\partial u_j} (u_j - \tilde{u}_j)
+\end{equation*}
+
+Relevantnost izlaza $R_i^{(l+1)}$ se poistovećuje sa aktivacijom $L_i(\mathbf{u}, \mathbf{v})$ i deli se na ulaze srazmerno njihovom udelu u ukupnom doprinosu. Sumiranjem po svim izlaznim neuronima $i$ dobija se opšta DTD formula:
+
+\begin{equation*}
+    R_j^{(l)} = \sum_i \frac{(u_j - \tilde{u}_j) \frac{\partial L_i(\mathbf{u}, \mathbf{v})}{\partial u_j}}{\sum_k (u_k - \tilde{u}_k) \frac{\partial L_i(\mathbf{u}, \mathbf{v})}{\partial u_k}} R_i^{(l+1)}
+\end{equation*}
+
+Izborom koordinatnog početka za korenu tačku ($\tilde{\mathbf{u}} = \mathbf{0}$) — što odgovara pretpostavci da model bez ulaza ne daje aktivaciju i da se bias član zanemaruje jer ne nosi informaciju o ulazu — formula se svodi na krajnji oblik:
+
+\begin{equation*}
+    R_j^{(l)} = \sum_i \frac{u_j \frac{\partial L_i(\mathbf{u}, \mathbf{v})}{\partial u_j}}{\sum_k u_k \frac{\partial L_i(\mathbf{u}, \mathbf{v})}{\partial u_k}} R_i^{(l+1)} \qquad \blacksquare
+\end{equation*}
+
+\subsection{Dokaz konzervacije relevantnosti za DTD}
+\label{appendix:conservation}
+
+Sumiranjem opšte formule \eqref{eq:deep_taylor} po svim ulaznim neuronima $j$ dobija se:
+
+\begin{equation*}
+    \sum_j R_j = \sum_j \sum_i 
+    \frac{u_j \frac{\partial L}{\partial u_j}}
+    {\sum_k u_k \frac{\partial L}{\partial u_k}} R_i
+\end{equation*}
+
+Zamenom redosleda sumiranja, izraz se transformiše u sledeći oblik:
+
+\begin{equation*}
+    \sum_j R_j = \sum_i R_i \cdot \left[ \frac{\sum_j u_j \frac{\partial L}{\partial u_j}}{\sum_k u_k \frac{\partial L}{\partial u_k}} \right] = \sum_i R_i
+    \blacksquare
+\end{equation*}
+
+\subsection{Dokaz nenegativnosti relevantnosti za $z^+$-pravilo}
+\label{appendix:positive}
+
+Dokaz se izvodi matematičkom indukcijom po slojevima unazad, počevši od izlaznog sloja $L$.
+
+\textbf{Baza indukcije:} Za izlazni sloj $L$, inicijalizacija postavlja $R_k^{(L)} \ge 0$ za ciljnu klasu, dok vrednost relevantnosti za ostale klase iznosi nula. Sledi da važi $R_k^{(L)} \ge 0, \forall k$.
+
+\textbf{Induktivni korak:} Pretpostavlja se da je relevantnost u sloju $l+1$ nenegativna, odnosno $R_i^{(l+1)} \ge 0$ za svako $i$. Posmatra se izraz za $z^+$-pravilo:
+
+\begin{equation*}
+    R_j^{(l)} = \sum_i \frac{z_{ji}^+}{\sum_{j'} z_{j'i}^+} R_i^{(l+1)}
+\end{equation*}
+
+Prema definiciji važi $z_{ji}^+ = \max(0, x_j w_{ji}) \geq 0$, što implicira i da je sumarni član u imeniocu $\sum_{j'} z_{j'i}^+ \geq 0$. S obzirom na to da su brojilac, imenilac i, prema induktivnoj hipotezi, član $R_i^{(l+1)}$ nenegativni, svaki sabirak u sumi je veći od nule ili jednak nuli. Odatle sledi:
+
+\begin{equation*}
+    R_j^{(l)} \geq 0, \quad \forall j \qquad \blacksquare
+\end{equation*}
+
+\subsection{Dokaz konzervacije relevantnosti za sabiranje}
+\label{appendix:addition}
+
+Za neparametarsku operaciju sabiranja dva tenzora, definisanu kao $\mathbf{z} = \mathbf{u} + \mathbf{v}$, primenom formule \eqref{eq:addition}:
+
+\begin{equation*}
+    \sum_j R_j^{\mathbf{u}} + \sum_j R_j^{\mathbf{v}} = 
+    \sum_j \frac{u_j}{u_j + v_j} R_j^{\mathbf{z}} + 
+    \sum_j \frac{v_j}{u_j + v_j} R_j^{\mathbf{z}} = 
+    \sum_j R_j^{\mathbf{z}} \qquad \blacksquare
+\end{equation*}
+
+\subsection{Dokaz narušavanja konzervacije kod matričnog množenja}
+\label{appendix:multiplication}
+
+Za matrično množenje $\mathbf{Z} = \mathbf{U}\mathbf{V}$, element izlaza definisan je kao $Z_{ij} = \sum_k U_{ik} V_{kj}$. Primenom opšte formule \eqref{eq:deep_taylor} na tenzor $\mathbf{U}$, uzimajući u obzir da element $U_{ik}$ učestvuje u računanju elemenata $Z_{ij}$ za svako $j$, njegova ukupna relevantnost iznosi:
+
+\begin{equation*}
+    R_{ik}^{\mathbf{U}} = \sum_j \frac{U_{ik} V_{kj}}{\sum_{k'} U_{ik'} V_{k'j}} R_{ij}^{\mathbf{Z}} = \sum_j \frac{U_{ik} V_{kj}}{Z_{ij}} R_{ij}^{\mathbf{Z}}
+\end{equation*}
+
+Sumiranjem po svim indeksima $i, k$, uvodi se međukorak zamene redosleda sumiranja u dvostrukoj sumi:
+
+\begin{equation*}
+    \sum_{i,k} R_{ik}^{\mathbf{U}} = \sum_{i,k} \sum_j \frac{U_{ik} V_{kj}}{Z_{ij}} R_{ij}^{\mathbf{Z}} = \sum_{i,j} \frac{R_{ij}^{\mathbf{Z}}}{Z_{ij}} \underbrace{\sum_k U_{ik} V_{kj}}_{= Z_{ij}} = \sum_{i,j} R_{ij}^{\mathbf{Z}}
+\end{equation*}
+
+Analogno:
+
+\begin{equation*}
+    \sum_{k,j} R_{kj}^{\mathbf{V}} = \sum_{k,j} \sum_i \frac{U_{ik} V_{kj}}{Z_{ij}} R_{ij}^{\mathbf{Z}} = \sum_{i,j} \frac{R_{ij}^{\mathbf{Z}}}{Z_{ij}} \underbrace{\sum_k U_{ik} V_{kj}}_{= Z_{ij}} = \sum_{i,j} R_{ij}^{\mathbf{Z}}
+\end{equation*}
+
+Sabiranjem ukupnih relevantnosti oba ulazna tenzora direktno sledi krajnji izraz:
+
+\begin{equation*}
+    \sum_{i,k} R_{ik}^{\mathbf{U}} + \sum_{k,j} R_{kj}^{\mathbf{V}} = \sum_{i,j} R_{ij}^{\mathbf{Z}} + \sum_{i,j} R_{ij}^{\mathbf{Z}} = 2\sum_{i,j} R_{ij}^{\mathbf{Z}} \qquad \blacksquare
+\end{equation*}
+
+\subsection{Dokaz konzervacije i ograničenja normalizovane relevantnosti}
+\label{appendix:normalization}
+
+Neka su $S_{\mathbf{A}} = \sum_l |R_l^{\mathbf{A}}|$ i $S_{\mathbf{B}} = \sum_k |R_k^{\mathbf{B}}|$ sume apsolutnih vrednosti preliminarnih relevantnosti ulaznih tenzora. Prema jednačini \eqref{eq:normalized}, normalizovana forma za tenzor $\mathbf{A}$ glasi:
+
+\begin{equation*}
+    \hat{R}_j^{\mathbf{A}} = R_j^{\mathbf{A}} \cdot \frac{S_{\mathbf{A}}}{S_{\mathbf{A}} + S_{\mathbf{B}}} \cdot \frac{\sum_i R_i^{\text{izlaz}}}{\sum_l R_l^{\mathbf{A}}}
+\end{equation*}
+
+\textbf{Konzervacija:} Sumiranjem normalizovanih komponenti $\hat{R}_j^{\mathbf{A}}$ po indeksu $j$ dobija se:
+
+\begin{equation*}
+    \sum_j \hat{R}_j^{\mathbf{A}} = \left( \sum_j R_j^{\mathbf{A}} \right) \cdot \frac{S_{\mathbf{A}}}{S_{\mathbf{A}} + S_{\mathbf{B}}} \cdot \frac{\sum_i R_i^{\text{izlaz}}}{\sum_l R_l^{\mathbf{A}}} = \frac{S_{\mathbf{A}}}{S_{\mathbf{A}} + S_{\mathbf{B}}} \sum_i R_i^{\text{izlaz}}
+\end{equation*}
+
+Analogno, za drugi ulazni tenzor važi $\sum_k \hat{R}_k^{\mathbf{B}} = \frac{S_{\mathbf{B}}}{S_{\mathbf{A}} + S_{\mathbf{B}}} \sum_i R_i^{\text{izlaz}}$. Sabiranjem ukupnih normalizovanih relevantnosti oba ulaza sledi:
+
+\begin{equation*}
+    \sum_j \hat{R}_j^{\mathbf{A}} + \sum_k \hat{R}_k^{\mathbf{B}} = \left( \frac{S_{\mathbf{A}}}{S_{\mathbf{A}} + S_{\mathbf{B}}} + \frac{S_{\mathbf{B}}}{S_{\mathbf{A}} + S_{\mathbf{B}}} \right) \sum_i R_i^{\text{izlaz}} = \sum_i R_i^{\text{izlaz}} \quad \blacksquare
+\end{equation*}
+
+\textbf{Ograničenje $0 \leq \hat{R}_j^{\mathbf{A}} \leq \sum_i R_i^{\text{izlaz}}$:} 
+
+Iz svojstva nenegativnosti relevantnosti usled primene $z^+$-pravila (Dodatak \ref{appendix:positive}) sledi da važi $R_j^{\mathbf{A}} \geq 0$, kao i $S_{\mathbf{A}}, S_{\mathbf{B}} \geq 0$. Na osnovu toga, normalizovani član se može analizirati kao proizvod:
+
+\begin{equation*}
+    \hat{R}_j^{\mathbf{A}} = R_j^{\mathbf{A}} \cdot \underbrace{\frac{S_{\mathbf{A}}}{S_{\mathbf{A}} + S_{\mathbf{B}}}}_{\in [0,1]} \cdot \frac{\sum_i R_i^{\text{izlaz}}}{\sum_l R_l^{\mathbf{A}}} \leq
+    \sum_i R_i^{\text{izlaz}} \cdot 
+    \frac{R_j^{\mathbf{A}}}{\sum_l R_l^{\mathbf{A}}}
+     \leq \sum_l R_l^{\text{izlaz}} \qquad \blacksquare
+\end{equation*}
+
+Kod matričnog množenja treći član je jednak jedinici jer svaki ulazni tenzor pojedinačno zadržava celokupnu količinu relevantnosti izlaza ($\sum_k R_k^{\mathbf{A}} = \sum_j R_j^{\text{izlaz}}$), na osnovu dokaza u Dodatku \ref{appendix:multiplication}. U tom slučaju, konzervaciju i podelu relevantnosti u potpunosti vrši drugi član.
+
+Nasuprot tome, kod sabiranja važi $\sum_j R_j^{\mathbf{A}} + \sum_k R_k^{\mathbf{B}} = \sum_i R_i^{\text{izlaz}}$, pa treći član služi kao kompenzacija za odstupanja nastala poništavanjem signala u imeniocu drugog člana, čime se sprečava numerička eksplozija i osigurava gornje ograničenje.
+
+\section{Dokaz ekvivalentnosti Kernel SHAP i Shapley vrednosti}
+\label{appendix:kernel_proof}
+
+Cilj je pokazati da minimizacija težinskih najmanjih kvadrata za centriranu funkciju $v(S) = f_x(\mathbf{z}_S') - f_x(\mathbf{0})$, uz uslove lokalne tačnosti i odsustva, daje tačno Shapley vrednosti.
+
+Uvođenjem uslova lokalne tačnosti $\sum_{j=1}^N \phi_j = v(N)$ preko Lagranževog množioca $\lambda$, optimizacioni problem se formuliše kao:
+
+\begin{equation}
+    \mathcal{L} = \sum_{S} \pi(S) \left[ v(S) - \sum_{j \in S} \phi_j \right]^2 + \lambda \left( v(N) - \sum_{j=1}^N \phi_j \right)
+\end{equation}
+
+Izjednačavanjem parcijalnog izvoda po $\phi_j$ sa nulom, uz razdvajanje člana $k=j$ od preostalih $k \neq j$, dobija se:
+
+\begin{equation*}
+    \sum_{S \mid j \in S} \pi(S) v(S) = \phi_j \sum_{S \mid j \in S} \pi(S) + \sum_{k \neq j} \phi_k \sum_{S \mid j \in S, k \in S} \pi(S) - \frac{\lambda}{2}
+\end{equation*}
+
+Pošto $\pi(S)$ zavisi samo od veličine koalicije $s=|S|$, definišu se dve konstante, iste za svako obeležje zbog simetrije $\pi$ po permutacijama:
+
+\begin{equation*}
+    A = \sum_{S \mid j \in S} \pi(S) = \sum_{s=1}^{N} \binom{N-1}{s-1}\pi(s), \qquad
+    B = \sum_{S \mid j \in S, k \in S} \pi(S) = \sum_{s=2}^{N} \binom{N-2}{s-2}\pi(s).
+\end{equation*}
+
+Uz oznaku $Y_j = \sum_{S \mid j \in S} \pi(S) v(S)$, jednačina se svodi na $Y_j = A\phi_j + B\sum_{k\neq j}\phi_k - \frac{\lambda}{2}$, a primenom $\sum_{k \neq j}\phi_k = v(N) - \phi_j$ dalje na:
+
+\begin{equation}
+    \phi_j = \frac{Y_j - Bv(N) + \frac{\lambda}{2}}{A-B}. \label{eq:phi_j_with_lambda}
+\end{equation}
+
+Množilac $\lambda$ eliminiše se sumiranjem \eqref{eq:phi_j_with_lambda} po svim $j$ i korišćenjem $\sum_j \phi_j = v(N)$, što daje $\frac{\lambda}{2} = \frac{(A-B+NB)v(N) - \sum_k Y_k}{N}$. Uvrštavanjem nazad i skraćivanjem članova uz $v(N)$, dobija se konačno rešenje težinskih najmanjih kvadrata:
+
+\begin{equation}
+    \phi_j = \frac{1}{A-B}Y_j - \frac{1}{N(A-B)}\sum_{k=1}^N Y_k + \frac{v(N)}{N}, \label{eq:wls_clean_solution}
+\end{equation}
+
+koje pokazuje da $\phi_j$ zavisi od svih koalicija — uključujući i one koje ne sadrže $j$ — kroz sumu $\sum_k Y_k$.
+
+Klasična Shapley formula može se zapisati preko grupisanih koeficijenata $\phi_j = \sum_{S\subseteq N} c(S)v(S)$, gde je $c^+(s) = \frac{(s-1)!(N-s)!}{N!}$ za $j\in S$, i $c^-(s) = -\frac{s!(N-s-1)!}{N!}$ za $j\notin S$. Poklapanje rešenja \eqref{eq:wls_clean_solution} sa ovom formulom za proizvoljnu $v$ zahteva podudaranje koeficijenata uz svako $v(S)$ u oba slučaja.
+
+Za $j\in S$, član $v(S)$ javlja se u $Y_j$ sa koeficijentom $1$ i u $\sum_k Y_k$ tačno $s$ puta, dajući ukupan koeficijent $\pi(s)\frac{N-s}{N(A-B)}$; izjednačavanje sa $c^+(s)$ daje:
+
+\begin{equation*}
+    \pi(s) = (A-B)\frac{(s-1)!(N-s-1)!}{(N-1)!}.
+\end{equation*}
+
+Za $j\notin S$, član $v(S)$ izostaje iz $Y_j$ ali se i dalje javlja $s$ puta u $\sum_k Y_k$, sa koeficijentom $-\frac{s\pi(s)}{N(A-B)}$; izjednačavanje sa $c^-(s)$ daje isti izraz:
+
+\begin{equation*}
+    \pi(s) = (A-B)\frac{(s-1)!(N-s-1)!}{(N-1)!}.
+\end{equation*}
+
+Podudaranje ova dva uslova potvrđuje konzistentnost rešenja i daje:
+
+\begin{equation*}
+    \pi(s) \propto \frac{(s-1)!(N-s-1)!}{(N-1)!} = \frac{N}{s(N-s)\binom{N}{s}}.
+\end{equation*}
+
+Kako je \eqref{eq:wls_clean_solution} invarijantno na skaliranje $\pi(s)$ proizvoljnom konstantom (jer se skaliranje prenosi i na $A-B$ i na $Y_j$, pa se u količniku poništava), konstanta proporcionalnosti bira se slobodno. Standardna normalizacija daje konačan, jedinstven oblik Shapley kernela:
+
+\begin{equation}
+    \pi(s) = \frac{N-1}{\binom{N}{s}\,s\,(N-s)}, \qquad s=1,\dots,N-1.
+\end{equation}
+
+Time je pokazano da minimizacija težinske kvadratne greške, uz uslove odsustva i lokalne tačnosti, sa ovim kernelom ima jedinstveno rešenje koje se poklapa sa Shapley formulom za svako obeležje $j$. $\blacksquare$

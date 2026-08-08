@@ -1,0 +1,265 @@
+\section{Metode zasnovane na analizi ulaza i izlaza}
+
+Za razliku od metoda opisanih u prethodnom poglavlju, koje eksploatišu unutrašnju strukturu modela --- gradijente, relevantnosti i mape pažnje --- metode razmatrane u ovom poglavlju nemaju pristup nijednoj od tih informacija. Model se posmatra isključivo kao ,,crna kutija'' (\textit{black-box}), odnosno kao funkcija koja prima ulaz i vraća izlaz, bez ikakve mogućnosti uvida u unutrašnje stanje mreže.
+
+Ovo ograničenje zahteva drugačiji matematički pristup. Budući da ne postoji direktan signal koji bi ukazao na važnost pojedinih delova ulaza, jedini način da se ta važnost proceni jeste sistematsko uključivanje i isključivanje delova ulazne slike i posmatranje kako se menja izlaz modela.
+
+U ovom poglavlju razmatraju se dve metode. Kernel SHAP \cite{lundberg2017shap} zasnovan je na teoriji igara i Shapley vrednostima, što mu daje formalnu aksiomatsku osnovu i garantovana teorijska svojstva. RISE \cite{petsiuk2018rise}, s druge strane, pristupa problemu empirijski kroz Monte Karlo aproksimaciju, bez formalnih garancija o prirodi dobijenih vrednosti važnosti. Njihovo međusobno poređenje ispituje doprinos formalnog matematičkog aparata u odnosu na empirijski pristup, dok poređenje sa metodama zasnovanim na unutrašnjoj strukturi modela omogućava kvantifikaciju cene koja se plaća odsustvom pristupa unutrašnjoj strukturi mreže.
+
+\subsection{Lokalni linearni modeli i reprezentacija ulaza}
+
+Formalni okvir za metode zasnovane na analizi ulaza i izlaza uveden je u radu \cite{ribeiro2016lime} uvođenjem tri ključna koncepta: originalnog modela 
+$f$, modela objašnjenja $g$ i funkcije mapiranja $h$. Originalni model 
+$f: \mathbb{R}^d \to \mathbb{R}$ predstavlja proizvoljnu funkciju koja prima 
+ulaznu sliku $\mathbf{x} \in \mathbb{R}^d$ i vraća verovatnoću ciljne klase. 
+Model objašnjenja $g: \{0,1\}^N \to \mathbb{R}$ deluje u uprošćenom prostoru 
+binarne reprezentacije $\mathbf{x}' \in \{0,1\}^N$, gde svaka komponenta 
+$x_i' \in \{0,1\}$ označava prisustvo ili odsustvo $i$-tog peča. Funkcija 
+mapiranja $h: \{0,1\}^N \to \mathbb{R}^d$ prevodi uprošćenu reprezentaciju 
+nazad u originalni prostor slike.
+
+Cilj je pronaći model objašnjenja $g$ takav da lokalno aproksimira originalni 
+model:
+
+\begin{equation}
+    g(\mathbf{x}') \approx f(h(\mathbf{x}'))
+\end{equation}
+
+Budući da je $f$ izuzetno složena, globalna aproksimacija nije moguća. Umesto 
+toga, traži se lokalni model koji zadovoljava ovu jednakost samo u okolini 
+konkretnog primera koji se objašnjava. Prirodan izbor za $g$ je linearni model:
+
+\begin{equation}
+    g(\mathbf{x}') = \phi_0 + \sum_{j=1}^{N} \phi_j x_j'
+\end{equation}
+
+gde $\phi_j \in \mathbb{R}$ predstavlja doprinos $j$-tog peča konačnoj 
+odluci modela. Interesantno je primetiti da LRP, opisan u prethodnom poglavlju, 
+tehnički takođe pripada klasi linearnih modela objašnjenja — relevantnosti 
+$R_j$ imaju ulogu koeficijenata $\phi_j$. Međutim, LRP ih izvodi propagacijom 
+kroz unutrašnju strukturu modela, a ne kroz posmatranje ulaza i izlaza.
+
+Da bi linearni model objašnjenja bio smislen, u radu \cite{lundberg2017shap} formalizovana su tri svojstva koja on mora da zadovolji:
+
+\begin{enumerate}
+    \item \textbf{Lokalna tačnost} — model objašnjenja mora tačno da reprodukuje 
+    izlaz originalnog modela kada se primeni na originalni primer:
+    \begin{equation}
+        f(\mathbf{x}) = g(\mathbf{x}') \quad \text{za } \mathbf{x} = h(\mathbf{x}')
+    \end{equation}
+
+    \item \textbf{Odsustvo} (\textit{missingness}) — ukoliko je peč odsutan 
+    u uprošćenoj reprezentaciji ($x_j' = 0$), njegov doprinos mora biti nula:
+    \begin{equation}
+        x_j' = 0 \implies \phi_j = 0
+    \end{equation}
+
+    \item \textbf{Konzistentnost} — ukoliko peč $j$ ima veći ili jednak 
+    marginalni doprinos u modelu $f$ nego u nekom drugom modelu $f'$, za sve 
+    moguće koalicije pečeva, tada mu model objašnjenja mora dodeliti veću 
+    ili jednaku vrednost:
+    \begin{equation}
+        f_x(S \cup \{j\}) - f_x(S) \geq f_x'(S \cup \{j\}) - f_x'(S), 
+        \quad \forall S \subseteq \{1,\ldots,N\} \setminus \{j\}
+        \implies \phi_j \geq \phi_j'
+    \end{equation}
+\end{enumerate}
+
+Pokazuje se da je jedini linearni model objašnjenja koji 
+istovremeno zadovoljava sva tri svojstva upravo model čiji su koeficijenti Shapley vrednosti iz teorije igara \cite{lundberg2017shap}:
+
+\begin{equation}
+    \phi_j = \sum_{S \subseteq \{1,\ldots,N\} \setminus \{j\}} 
+    \frac{|S|!(N-|S|-1)!}{N!} 
+    \left[ f_x(S \cup \{j\}) - f_x(S) \right]
+    \label{eq:shapley}
+\end{equation}
+
+gde $f_x(S) = f(h(\mathbf{x}_S'))$ označava izlaz modela kada su aktivni 
+isključivo pečevi iz skupa $S$.
+
+\paragraph{Reprezentacija ulaza na nivou pečeva.} U kontekstu ViT modela, 
+prirodan izbor uprošćene reprezentacije su pečevi — svaki element 
+$x_j' \in \{0,1\}$ direktno odgovara jednom peč tokenu. Maskiranje peča 
+$j$ postiže se postavljanjem njegovog uticaja na nulu u mehanizmu pažnje, 
+kao što je opisano u sekciji \ref{sec:masking}, bez ikakve modifikacije 
+ulaznih piksela. Ovo čini ViT arhitekturu posebno pogodnom za primenu 
+metoda zasnovanih na analizi ulaza i izlaza.
+
+\subsection{Kernel SHAP}
+
+Direktno računanje Shapley vrednosti prema formuli \eqref{eq:shapley} zahteva 
+evaluaciju modela za svih $2^N$ podskupova pečeva, što zbog eksponencijalnog rasta broja kombinacija za veće vrednosti $N$ postaje računarski neizvodljivo. Kernel SHAP \cite{lundberg2017shap} rešava ovaj 
+problem aproksimacijom Shapley vrednosti kroz ponderisanu linearnu regresiju 
+na uzorkovanim maskama.
+
+Ideja je da se pronađe linearni model $g$ koji minimizuje:
+
+\begin{equation}
+    \mathcal{L}(f, g, \pi) = \sum_{\mathbf{z}' \in \{0,1\}^N} 
+    \pi(\mathbf{z}') \left[ f(h(\mathbf{z}')) - g(\mathbf{z}') \right]^2
+    \label{eq:kernel_loss}
+\end{equation}
+
+gde je $\pi(\mathbf{z}')$ težinska funkcija koja određuje koliko je važno 
+da $g$ dobro aproksimira $f$ za datu masku $\mathbf{z}'$.
+
+\paragraph{Shapley kernel.} Glavni doprinos metode Kernel SHAP predstavlja uvođenje specifične težinske funkcije -- \textit{Shapley} kernela:
+
+\begin{equation}
+    \pi(\mathbf{z}') = \frac{(N-1)}{\binom{N}{|\mathbf{z}'|} \cdot 
+    |\mathbf{z}'| \cdot (N - |\mathbf{z}'|)}
+    \label{eq:shapley_kernel}
+\end{equation}
+
+gde $|\mathbf{z}'| = \sum_j z_j'$ označava broj aktivnih pečeva u masci. 
+Može se pokazati da minimizacija \eqref{eq:kernel_loss} sa ovim kernelom 
+daje tačno Shapley vrednosti kao rešenje (dokaz u Dodatku 
+\ref{appendix:kernel_proof}).
+
+Logika iza izbora kernela \eqref{eq:shapley_kernel} postaje jasna kada se analizira promena težina za različite veličine maski:
+
+\begin{itemize}
+    \item Maske sa skoro svim aktivnim patchevima ($|\mathbf{z}'| \approx N-1$) 
+    dobijaju veliku težinu — one su bliske originalnom primeru $\mathbf{x}$, 
+    što odgovara uslovu lokalne tačnosti.
+    
+    \item Maske sa malo aktivnih patcheva ($|\mathbf{z}'| \approx 0$) 
+    dobijaju veliku težinu — one su bliske praznoj slici $\mathbf{x}'$, 
+    što odgovara uslovu odsustva.
+    
+    \item Maske sa $|\mathbf{z}'| = 0$ (prazna slika) ili $|\mathbf{z}'| = N$ 
+    (originalna slika) dobijaju težinu $\infty$ — ovo forsira linearni model 
+    da tačno reprodukuje $f(\mathbf{x})$ i $f(\mathbf{0})$, što direktno 
+    implementira uslove lokalne tačnosti i odsustva po konstrukciji.
+    
+    \item Maske sa otprilike polovinom aktivnih patcheva 
+    ($|\mathbf{z}'| \approx N/2$) dobijaju najmanju težinu — one nose 
+    najmanje informacije o marginalnim doprinosima pojedinih pečeva.
+\end{itemize}
+
+\paragraph{Uzorkovanje iz Shapley raspodele.}
+Umesto da se maske $\mathbf{z}'$ uzorkuju uniformno iz $\{0,1\}^N$ i potom
+ponderišu Shapley kernelom \eqref{eq:shapley_kernel} u okviru ponderisane
+regresije, u ovoj implementaciji se sam proces uzorkovanja vodi Shapley
+kernelom. Pošto kernel \eqref{eq:shapley_kernel} zavisi samo od veličine
+maske $k = |\mathbf{z}'|$, on se može zapisati kao raspodela verovatnoće
+po veličinama:
+\begin{equation}
+    p(k) = \frac{w(k)}{\sum_{k'=1}^{N-1} w(k')}, \qquad
+    w(k) = \frac{N-1}{\binom{N}{k}\, k\, (N-k)}, \qquad k = 1, \ldots, N-1.
+    \label{eq:size_dist}
+\end{equation}
+Za svaku uzorkovanu masku prvo se izvlači veličina $k \sim p(k)$ prema
+\eqref{eq:size_dist}, a zatim se od $N$ pečeva nasumično (uniformno) bira
+tačno $k$ aktivnih. Maske $\mathbf{z}' = \mathbf{0}$ i $\mathbf{z}' =
+\mathbf{1}$ (prazna i puna slika) uvek se uključuju eksplicitno, čime se
+garantuju tačne vrednosti $f(\mathbf{0})$ i $f(\mathbf{x})$, tj. uslovi
+odsustva i lokalne tačnosti.
+
+Pošto raspodela uzorkovanja $p(k)$ već odražava relativnu važnost datu
+Shapley kernelom, dodatno ponderisanje u regresiji više nije potrebno --
+sve uzorkovane maske ulaze u sistem sa jednakom težinom
+$\pi(\mathbf{z}_i') = 1$. 
+
+\paragraph{Rešavanje sistema.}
+Neka je $\mathbf{Z}' \in \{0,1\}^{M \times N}$ matrica od $M$ uzorkovanih
+maski i $\mathbf{y} \in \mathbb{R}^M$ odgovarajući vektor izlaza modela.
+Shapley vrednosti $\boldsymbol{\phi} \in \mathbb{R}^N$ dobijaju se kao
+rešenje regularizovanog problema najmanjih kvadrata:
+\begin{equation}
+    \boldsymbol{\phi} = \arg\min_{\boldsymbol{\phi}}
+    \left\lVert \mathbf{Z}' \boldsymbol{\phi} - \mathbf{y} \right\rVert_2^2
+    + \alpha \left\lVert \boldsymbol{\phi} \right\rVert_2^2,
+    \quad \text{uz} \quad \sum_{j=1}^{N} \phi_j = f(\mathbf{x}) - f(\mathbf{0}),
+    \label{eq:constrained_ls}
+\end{equation}
+gde je $\alpha$ regularizacioni parametar, a $\mathbf{y} = 
+\mathbf{s} - f(\mathbf{0})$ centrirani vektor skorova modela. Ograničenje
+u \eqref{eq:constrained_ls} direktno implementira uslov lokalne tačnosti
+i zamenjuje pristup sa beskonačnim težinama za maske $\mathbf{0}$ i
+$\mathbf{1}$ iz originalne formulacije metode Kernel SHAP.
+
+Problem \eqref{eq:constrained_ls} rešava se preko KKT sistema: uvođenjem
+Lagranžovog množioca $\lambda$ za linearno ograničenje, optimalno rešenje
+$(\boldsymbol{\phi}^\star, \lambda^\star)$ dobija se rešavanjem sistema
+\begin{equation}
+    \begin{bmatrix}
+        \mathbf{Z}'^T \mathbf{Z}' + \alpha \mathbf{I} & \mathbf{1} \\
+        \mathbf{1}^T & 0
+    \end{bmatrix}
+    \begin{bmatrix}
+        \boldsymbol{\phi} \\ \lambda
+    \end{bmatrix}
+    =
+    \begin{bmatrix}
+        \mathbf{Z}'^T \mathbf{y} \\ f(\mathbf{x}) - f(\mathbf{0})
+    \end{bmatrix},
+    \label{eq:kkt}
+\end{equation}
+gde je $\mathbf{1} \in \mathbb{R}^N$ vektor jedinica. Povećanjem broja
+uzorkovanih maski $M$, rešenje \eqref{eq:kkt} konvergira ka tačnim
+Shapley vrednostima \eqref{eq:shapley}.
+
+\subsection{RISE}
+
+\textit{Randomized Input Sampling for Explanation} (RISE) \cite{petsiuk2018rise} 
+pristupa problemu aproksimacije važnosti pečeva iz drugačijeg ugla u odnosu na 
+Kernel SHAP. Umesto formalne aditivne dekompozicije izlaza modela, RISE procenjuje 
+važnost svakog peča kroz njegovu statističku povezanost sa izlazom modela preko 
+skupa nasumično generisanih maski.
+
+Formalno, važnost peča $j$ definisana je kao očekivana vrednost izlaza 
+modela po svim maskama u kojima je peč $j$ aktivan:
+\begin{equation}
+    \phi_j = \mathbb{E}_{\mathbf{z}' \sim \mathcal{D}} 
+    \left[ f(h(\mathbf{z}')) \mid z_j' = 1 \right]
+\end{equation}
+
+gde $\mathcal{D}$ označava raspodelu maski. U praksi, ovo očekivanje se 
+aproksimira Monte Karlo sumom:
+\begin{equation}
+    \phi_j \approx \frac{\sum_{i=1}^{M} f(h(\mathbf{z}_i')) \cdot z_{ij}'}
+    {\sum_{i=1}^{M} z_{ij}'}
+    \label{eq:rise}
+\end{equation}
+
+\paragraph{Generisanje maski.} Za razliku od metode Kernel SHAP, gde se maske uzorkuju iz oteženjene raspodele 
+definisane preko Shapley kernela (koja koalicijama malih i velikih kardinalnosti 
+dodeljuje veću težinu), RISE koristi direktno nezavisno 
+uzorkovanje — svaki peč se uključuje u masku kao Bernulijeva slučajna promenljiva 
+sa verovatnoćom $p$:
+\begin{equation}
+    z_j' \sim \text{Bernoulli}(p), \quad j = 1, \ldots, N
+\end{equation}
+Parametar $p$ direktno određuje prosečan broj aktivnih pečeva po maski i time 
+oblik dobijenih perturbacija. Mala vrednost $p$ generiše maske sa svega 
+nekoliko istovremeno prisutnih pečeva, čime se dobijaju perturbacije bliske 
+izolovanom testiranju pojedinačnih regiona — pogodne za lociranje malih, 
+kompaktnih objekata od interesa, ali sklone visokoj varijansi procene usled 
+retkog uzorkovanja pozitivnih kombinacija. Nasuprot tome, $p$ blisko $1$ 
+proizvodi maske u kojima je gotovo ceo ulaz prisutan, pa se perturbacije svode 
+na izuzimanje samo manjeg broja pečeva — takav režim bolje otkriva efekte 
+izostavljanja pojedinačnih regiona iz inače potpunog konteksta, ali otežava 
+razlikovanje doprinosa u slučajevima kada je relevantan objekat prostorno 
+raspoređen. Izbor $p = 0.5$ pruža uravnoteženu pokrivenost prostora maski i 
+predstavlja standardnu praksu \cite{petsiuk2018rise}.
+
+Dodatno, maske se ne generišu direktno u punoj rezoluciji, već na manjoj, grubljoj mreži ($7 \times 7$), koja se zatim uveća na ciljanu rezoluciju. Na taj način susedni pečevi postaju međusobno zavisni, pa maske dobijaju glatke, prostorno povezane oblike umesto nasumično rasutih pojedinačnih pečeva, što bolje odgovara prirodnim granicama objekata na slici. Pri uvećanju se dodatno primenjuje nasumičan pomeraj grube mreže -- bez njega bi se ista granica grube mreže uvek preslikavala na iste pečeve u finoj rezoluciji, pa bi kroz sve maske isti pečevi stalno padali u istu koaliciju. Nasumični pomeraj obezbeđuje da se u svakoj maski granice grube mreže drugačije poklapaju sa finim pečevima, čime se postiže raznovrsnija i ravnomernija pokrivenost kombinacija pečeva kroz ceo skup maski.
+
+
+\paragraph{Ograničenje u modelovanju interakcija i efikasnost.} Iz same formulacije algoritma proizilaze dve ključne razlike u odnosu na 
+Kernel SHAP. Prvo, procena \eqref{eq:rise} predstavlja empirijsko očekivanje 
+uslovljeno isključivo prisustvom peča $j$, što znači da RISE ne modeluje 
+eksplicitno interakcije između pečeva. Interakcije višeg reda — gde dva peča 
+ostvaruju značajan zajednički efekat tek kada su prisutni istovremeno — mogu 
+stoga ostati potcenjene. Drugo, kada se primeni na standardne verovatnoće klasifikacije, vrednosti važnosti su po konstrukciji ograničene na interval $[0, 1]$, za razliku od Shapley vrednosti koje mogu biti negativne. Odsustvo negativnih vrednosti rezultuje mapama koje se prirodnije interpretiraju kao čista mera relevantnosti regiona slike.
+Konačno, pod pretpostavkom jednakog broja uzorkovanih maski $M$, RISE nudi 
+prednost u računarskoj složenosti — dok Kernel SHAP zahteva rešavanje 
+ponderisanog sistema najmanjih kvadrata dimenzija $M \times N$, RISE se 
+oslanja isključivo na elementarne operacije sabiranja i deljenja. Dodatno, 
+Kernel SHAP u praksi obično zahteva veći broj uzorkovanih maski da bi se 
+regresiona procena stabilizovala i konvergirala ka pouzdanim Shapley 
+vrednostima, dok RISE-ova jednostavnija estimacija po pravilu konvergira uz 
+manji broj uzoraka — usled oba faktora, ukupno vreme izvršavanja RISE-a je u 
+praksi znatno manje.
