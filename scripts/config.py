@@ -84,7 +84,6 @@ class EvalConfig:
     pointing_multi_bbox: bool = False
     device:              str  = "cpu"
     verbose:             bool = True
-    verbose_step:        int  = 10
     seed:                int  = 42
 
 
@@ -95,11 +94,10 @@ class RunConfig:
     results_dir: Path = Path(__file__).resolve().parents[1] / "results"
 
     # Data 
-    num_samples: int = 50
+    num_samples: int = 1000
     seed: int = 42
     batch_size: int = 1          
     num_workers: int = 4
-    confidence_threshold: float = 0.5
 
     # Model 
     model_name: str = "vit_base_patch16_224"
@@ -109,9 +107,9 @@ class RunConfig:
     methods: List[str] = field(default_factory=lambda: [
         "Vanilla Gradient", "Gradient X Input", 
         #"Integrated Gradients", "Smooth Gradient", 
-       # "GradCAM", "Attention Rollout", 
-       # "Transformer Attribution", "GMAR", "LRP",
-       # "RISE", "SHAP"
+        "GradCAM", "Attention Rollout", 
+        "Transformer Attribution", "GMAR", "LRP",
+        "RISE", "SHAP"
     ])
     
     # EvalConfig hyperparameters 
@@ -123,16 +121,15 @@ class RunConfig:
 
     # Black-box XAI hyperparameters
     black_box_batch: int = 192
-    rise_mask: int = 8000
+    rise_mask: int = 6000
     rise_mask_prob: float = 0.5
-    kernel_shap_mask: int = 2000
-    kernel_shap_ridge_alpha: float = 1e-3
+    kernel_shap_mask: int = 8000
+    kernel_shap_ridge_alpha: float = 1e-5
 
     # Runtime 
     device: str = "auto"              # "auto" | "cuda" | "cpu"
     verbose: bool = True
     save_results: bool = True
-    verbose_step: int = 10
 
     def resolved_device(self) -> str:
         if self.device == "auto":
@@ -150,7 +147,6 @@ class RunConfig:
             pointing_multi_bbox=self.pointing_multi_bbox,
             device=self.resolved_device(),
             verbose=self.verbose,
-            verbose_step=self.verbose_step,
             seed=self.seed
         )
 
@@ -172,7 +168,6 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
     g.add_argument("--seed",                  type=int,   default=RunConfig.seed)
     g.add_argument("--batch-size",            type=int,   default=RunConfig.batch_size)
     g.add_argument("--num-workers",           type=int,   default=RunConfig.num_workers)
-    g.add_argument("--confidence-threshold",  type=float, default=RunConfig.confidence_threshold)
 
     # Model
     g = parser.add_argument_group("Model")
@@ -210,7 +205,6 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
     g.add_argument("--no-verbose",    action="store_true")
     g.add_argument("--save-results", action=argparse.BooleanOptionalAction, 
                    default=RunConfig.save_results, help="Save results to --results-dir as JSON")
-    g.add_argument("--verbose-step",  type=int, default=RunConfig.verbose_step)
 
     args = parser.parse_args(argv)
 
@@ -221,7 +215,6 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
         seed=args.seed,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
-        confidence_threshold=args.confidence_threshold,
         model_name=args.model_name,
         pretrained=not args.no_pretrained,
         methods=args.methods,
@@ -237,6 +230,5 @@ def parse_args(argv: list[str] | None = None) -> RunConfig:
         kernel_shap_ridge_alpha=args.kernel_shap_ridge_alpha,
         device=args.device,
         verbose=not args.no_verbose,
-        verbose_step=args.verbose_step,
         save_results=args.save_results
     )
