@@ -32,7 +32,6 @@ konkretnog primera koji se objašnjava. Prirodan izbor za $g$ je linearni model:
 \begin{equation}
     g(\mathbf{x}') = \phi_0 + \sum_{j=1}^{N} \phi_j x_j'
 \end{equation}
-
 gde $\phi_j \in \mathbb{R}$ predstavlja doprinos $j$-tog peča konačnoj 
 odluci modela. Interesantno je primetiti da LRP, opisan u prethodnom poglavlju, 
 tehnički takođe pripada klasi linearnih modela objašnjenja — relevantnosti 
@@ -74,7 +73,6 @@ istovremeno zadovoljava sva tri svojstva upravo model čiji su koeficijenti Shap
     \left[ f_x(S \cup \{j\}) - f_x(S) \right]
     \label{eq:shapley}
 \end{equation}
-
 gde $f_x(S) = f(h(\mathbf{x}_S'))$ označava izlaz modela kada su aktivni 
 isključivo pečevi iz skupa $S$.
 
@@ -100,7 +98,6 @@ Ideja je da se pronađe linearni model $g$ koji minimizuje:
     \pi(\mathbf{z}') \left[ f(h(\mathbf{z}')) - g(\mathbf{z}') \right]^2
     \label{eq:kernel_loss}
 \end{equation}
-
 gde je $\pi(\mathbf{z}')$ težinska funkcija koja određuje koliko je važno 
 da $g$ dobro aproksimira $f$ za datu masku $\mathbf{z}'$.
 
@@ -111,7 +108,6 @@ da $g$ dobro aproksimira $f$ za datu masku $\mathbf{z}'$.
     |\mathbf{z}'| \cdot (N - |\mathbf{z}'|)}
     \label{eq:shapley_kernel}
 \end{equation}
-
 gde $|\mathbf{z}'| = \sum_j z_j'$ označava broj aktivnih pečeva u masci. 
 Može se pokazati da minimizacija \eqref{eq:kernel_loss} sa ovim kernelom 
 daje tačno Shapley vrednosti kao rešenje (dokaz u Dodatku 
@@ -150,8 +146,9 @@ po veličinama:
     w(k) = \frac{N-1}{\binom{N}{k}\, k\, (N-k)}, \qquad k = 1, \ldots, N-1.
     \label{eq:size_dist}
 \end{equation}
+
 Za svaku uzorkovanu masku prvo se izvlači veličina $k \sim p(k)$ prema
-\eqref{eq:size_dist}, a zatim se od $N$ pečeva nasumično (uniformno) bira
+\eqref{eq:size_dist}, a zatim se od $N$ pečeva nasumično bira
 tačno $k$ aktivnih. Maske $\mathbf{z}' = \mathbf{0}$ i $\mathbf{z}' =
 \mathbf{1}$ (prazna i puna slika) uvek se uključuju eksplicitno, čime se
 garantuju tačne vrednosti $f(\mathbf{0})$ i $f(\mathbf{x})$, tj. uslovi
@@ -215,7 +212,6 @@ modela po svim maskama u kojima je peč $j$ aktivan:
     \phi_j = \mathbb{E}_{\mathbf{z}' \sim \mathcal{D}} 
     \left[ f(h(\mathbf{z}')) \mid z_j' = 1 \right]
 \end{equation}
-
 gde $\mathcal{D}$ označava raspodelu maski. U praksi, ovo očekivanje se 
 aproksimira Monte Karlo sumom:
 \begin{equation}
@@ -256,10 +252,4 @@ ostvaruju značajan zajednički efekat tek kada su prisutni istovremeno — mogu
 stoga ostati potcenjene. Drugo, kada se primeni na standardne verovatnoće klasifikacije, vrednosti važnosti su po konstrukciji ograničene na interval $[0, 1]$, za razliku od Shapley vrednosti koje mogu biti negativne. Odsustvo negativnih vrednosti rezultuje mapama koje se prirodnije interpretiraju kao čista mera relevantnosti regiona slike.
 Konačno, pod pretpostavkom jednakog broja uzorkovanih maski $M$, RISE nudi 
 prednost u računarskoj složenosti — dok Kernel SHAP zahteva rešavanje 
-ponderisanog sistema najmanjih kvadrata dimenzija $M \times N$, RISE se 
-oslanja isključivo na elementarne operacije sabiranja i deljenja. Dodatno, 
-Kernel SHAP u praksi obično zahteva veći broj uzorkovanih maski da bi se 
-regresiona procena stabilizovala i konvergirala ka pouzdanim Shapley 
-vrednostima, dok RISE-ova jednostavnija estimacija po pravilu konvergira uz 
-manji broj uzoraka — usled oba faktora, ukupno vreme izvršavanja RISE-a je u 
-praksi znatno manje.
+ponderisanog sistema najmanjih kvadrata dimenzija $M \times N$, RISE se oslanja isključivo na elementarne operacije sabiranja i deljenja. Dodatno, Kernel SHAP u praksi obično zahteva veći broj uzorkovanih maski da bi se regresiona procena stabilizovala i konvergirala ka pouzdanim Shapley vrednostima, dok jednostavnija procena metode RISE po pravilu konvergira uz manji broj uzoraka — usled oba faktora, ukupno vreme izvršavanja metode RISE je u praksi znatno manje.

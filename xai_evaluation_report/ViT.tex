@@ -16,7 +16,6 @@ Svaki peč se potom vektorizuje u niz dimenzije $P^2 \cdot C$ i linearno projekt
     \mathbf{z}_i = \mathbf{W}_E \cdot \text{flatten}(\mathbf{x}_i) + \mathbf{b}_E, 
     \quad i = 1, \ldots, N
 \end{equation}
-
 gde je $\mathbf{W}_E \in \mathbb{R}^{D \times (P^2 \cdot C)}$ matrica projekcije, a $\mathbf{x}_i$ označava $i$-ti peč ulazne slike.
 
 U slučaju standardnog ViT-Base modela koji se koristi u ovom radu, ulazna slika dimenzija $224 \times 224$ piksela deli se na pečeve veličine $16 \times 16$. Primenom gornje formule dobija se sekvenca od:
@@ -24,7 +23,6 @@ U slučaju standardnog ViT-Base modela koji se koristi u ovom radu, ulazna slika
 \begin{equation*}
     N = \frac{224 \times 224}{16^2} = 196
 \end{equation*}
-
 vektora, odnosno vizuelnih tokena. Celokupna struktura modela i tok podataka detaljnije su prikazani na slici \ref{fig:vit_architecture}.
 
 \begin{figure}[htbp]
@@ -47,7 +45,6 @@ Mehanizam pažnje po svojoj prirodi ne uzima u obzir redosled elemenata u sekven
 \begin{equation}
     \mathbf{z}_i \leftarrow \mathbf{z}_i + \mathbf{e}_i^{pos}, \quad i = 0, 1, \ldots, N
 \end{equation}
-
 gde $\mathbf{e}_i^{pos} \in \mathbb{R}^D$ predstavlja naučeni pozicioni vektor, koji se pridružuje svakom tokenu, uključujući i specijalni \textit{CLS} token. 
 
 Za razliku od originalnog Transformer modela koji se oslanja na fiksne sinusoidalne funkcije, ViT koristi naučene jednodimenzionalne (1D) pozicione vektore. To znači da svaki token dobija jedinstven vektor položaja, bez potrebe za eksplicitnim kodiranjem dvodimenzionalne geometrije same slike.
@@ -62,16 +59,13 @@ Centralna komponenta ViT arhitekture je mehanizam višestruke pažnje (\textit{M
     \mathbf{K} = \mathbf{Z}\mathbf{W}^K, \quad 
     \mathbf{V} = \mathbf{Z}\mathbf{W}^V
 \end{equation}
-
 gde su $\mathbf{W}^Q, \mathbf{W}^K, \mathbf{W}^V \in \mathbb{R}^{D \times d_k}$ naučene matrice projekcije. Ovde $h$ označava ukupan broj komponenti pažnje, dok je $d_k = D / h$ dimenzija prostora u koji projektuje svaka pojedinačna komponenta.
 
 Unutar svake komponente, funkcija pažnje se računa preko skaliranog skalarnog proizvoda (\textit{Scaled Dot-Product Attention}):
-
 \begin{equation}
     \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = 
     \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right)\mathbf{V}
 \end{equation}
-
 \begin{figure}[htbp]
     \centering
     \begin{minipage}[b]{0.47\textwidth}
@@ -89,7 +83,7 @@ Unutar svake komponente, funkcija pažnje se računa preko skaliranog skalarnog 
     \end{minipage}
 \end{figure}
 
-Matrica $\mathbf{A} = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right) \in \mathbb{R}^{(N+1) \times (N+1)}$ predstavlja takozvanu matricu pažnje (\textit{attention matrix}). Element $a_{ij}$ ove matrice kvantifikuje meru u kojoj token $i$ uzima u obzir informacije iz tokena $j$ prilikom formiranja svoje izlazne reprezentacije. Budući da se \textit{softmax} funkcija primenjuje nezavisno po redovima, zbir elemenata u svakom redu matrice pažnje jednak je jedinici:
+Matrica $\mathbf{A} = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right) \in \mathbb{R}^{(N+1) \times (N+1)}$ predstavlja takozvanu matricu pažnje (\textit{attention matrix}). Element $a_{ij}$ ove matrice kvantifikuje meru u kojoj token $i$ uzima u obzir informacije iz tokena $j$ prilikom formiranja svoje izlazne reprezentacije. Budući da se softmax funkcija primenjuje nezavisno po redovima, zbir elemenata u svakom redu matrice pažnje jednak je jedinici:
 
 \begin{equation}
     \sum_{j=0}^{N} a_{ij} = 1, \quad \forall i
@@ -108,7 +102,6 @@ Umesto jedne matrice pažnje, ViT koristi $h$ paralelnih komponenti pažnje, od 
 \begin{equation}
     \text{MHSA}(\mathbf{Z}) = \text{concat}(\text{head}_1, \ldots, \text{head}_h)\mathbf{W}^O
 \end{equation}
-
 gde $\mathbf{W}^O \in \mathbb{R}^{D \times D}$ predstavlja matricu izlazne projekcije. Istraživanja su pokazala da se pojedinačne komponente pažnje specijalizuju za različite aspekte unutar podataka — dok se neke fokusiraju na lokalne zavisnosti i fine detalje, druge prate globalne strukture i širi kontekst \cite{voita2019analyzing}.
 
 \subsection{Mreža unapred po pozicijama}
@@ -118,13 +111,12 @@ Nakon bloka sa višestrukom pažnjom, reprezentacija svakog tokena se nezavisno 
 \begin{equation}
     \text{FFN}(\mathbf{z}) = \mathbf{W}_2 \cdot \text{GELU}(\mathbf{W}_1 \mathbf{z} + \mathbf{b}_1) + \mathbf{b}_2
 \end{equation}
-
 gde su $\mathbf{W}_1 \in \mathbb{R}^{4D \times D}$ i $\mathbf{W}_2 \in \mathbb{R}^{D \times 4D}$ 
 naučene matrice, dok su $\mathbf{b}_1$ i $\mathbf{b}_2$ odgovarajući vektori pomeraja. Ključna osobina FFN sloja je da tokeni međusobno ne komuniciraju — 
 svaki token se transformiše isključivo na osnovu sopstvene reprezentacije. Sva 
 interakcija između tokena odvija se isključivo kroz mehanizam pažnje.
 
-\subsection{Transformer Enkoder i Klasifikacija}
+\subsection{Transformer enkoder i klasifikacija}
 
 Kompletni Transformer enkoder sastoji se od $L$ identičnih blokova. Svaki blok sadrži sloj sa višestrukom pažnjom i sloj mreže unapred po pozicijama (FFN), pri čemu su oba sloja praćena normalizacijom po slojevima (\textit{Layer Normalization}, LN) i rezidualnim vezama:
 
@@ -171,7 +163,6 @@ pre softmax normalizacije:
         -\infty & \text{ako je token } j \text{ maskiran}
     \end{cases}
 \end{equation}
-
 gde je $\mathbf{S} = \mathbf{Q}\mathbf{K}^T / \sqrt{d_k}$ matrica sirovih 
 skorova pažnje, a $\mathbf{A} = \text{softmax}(\tilde{\mathbf{S}})$. Nakon 
 softmax normalizacije, maskirani tokeni dobijaju težinu nula u svim redovima 

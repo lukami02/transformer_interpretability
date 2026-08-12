@@ -1,6 +1,6 @@
 \section{Metode zasnovane na unutrašnjoj strukturi modela}
 
-Metode interpretabilnosti veštačke inteligencije (\textit{Explainable AI} - XAI) mogu se fundamentalno podeliti na osnovu stepena pristupa unutrašnjoj arhitekturi i parametrima modela. Ovo poglavlje posvećeno je metodama specifičnih za model ( \textit{white-box methods}) koje zahtevaju potpun uvid u unutrašnje stanje mreže, uključujući njene težine, aktivacije i gradijente. Nasuprot njima, metode nezavisne od modela, koje sistem posmatraju isključivo spolja, biće detaljno analizirane u narednom poglavlju.
+Metode interpretabilnosti veštačke inteligencije (\textit{Explainable AI} - XAI) mogu se fundamentalno podeliti na osnovu stepena pristupa unutrašnjoj arhitekturi i parametrima modela. Ovo poglavlje posvećeno je metodama specifičnim za model (\textit{white-box methods}) koje zahtevaju potpun uvid u unutrašnje stanje mreže, uključujući njene težine, aktivacije i gradijente. Nasuprot njima, metode nezavisne od modela, koje sistem posmatraju isključivo spolja, biće detaljno analizirane u narednom poglavlju.
 
 Unutar ovog poglavlja, fokus je usmeren na tri ključne grupe pristupa. Najpre se analiziraju istorijski i konceptualno fundamentalne metode zasnovane na gradijentima. Iako ove metode ne predstavljaju primarni fokus evaluacije u ovom radu, one služe kao neophodna teorijska osnova i intuitivna motivacija za razumevanje naprednijih pristupa. Analiza njihovih prednosti, a naročito ograničenja, direktno otvara prostor za sofisticiranije metode specifične za arhitekture zasnovane na mehanizmu pažnje. U tom kontekstu, centralni deo poglavlja posvećen je metodama propagacije relevantnosti po slojevima (LRP) i tehnikama koje eksploatišu samu strukturu Transformer modela, kao što su Attention Rollout \cite{abnar2020quantifying} i metoda propagacije relevantnosti kroz mehanizam pažnje \cite{chefer2021transformer}.
 
@@ -52,7 +52,6 @@ Kako bi se ublažio problem vizuelne nestabilnosti, predložena je metoda \texti
 \begin{equation}
     S_{I \times G}(\mathbf{x}) = \mathbf{x} \odot \frac{\partial f_c(\mathbf{x})}{\partial \mathbf{x}}
 \end{equation}
-
 gde $\odot$ označava Adamarov (element-po-element) proizvod. Teorijska 
 opravdanost ovog pristupa proizilazi iz njegove interpretacije kao prvog člana 
 Tejlorovog reda funkcije $f_c$ razvijenog oko nule \cite{bach2015pixel}:
@@ -85,7 +84,7 @@ dublji slojevi nose semantički bogatije reprezentacije, a njihovi gradijenti su
 jer nisu izloženi kumulativnom efektu nelinearnih transformacija.
 
 \paragraph{Konvolucione neuralne mreže.}
-Kod CNN arhitektura primena je direktna: konvolucioni slojevi očuvavaju lokalnu prostornu 
+Kod CNN arhitektura primena je direktna: konvolucioni slojevi čuvaju lokalnu prostornu 
 korespondenciju, što omogućava precizno mapiranje aktivacija na regione ulazne slike. 
 GradCAM koristi mape aktivacija poslednjeg konvolucionog sloja $\mathbf{A}^k$ i računa 
 težinu svakog kanala globalnim usrednjavanjem gradijenta ciljnog izlaza po prostornim 
@@ -116,7 +115,7 @@ analogno CNN slučaju:
     S_{\text{GradCAM}}^{\text{ViT}}(\mathbf{x}) = 
     \max\!\left(\sum_h \alpha_h^c \cdot \mathbf{a}^{(l,h)},\; 0\right)
 \end{equation}
-Rezultujući vektor od $N$ elemenata direktno odgovara $N$ pečeva na koje je ulazna slika 
+Rezultujući vektor od $N$ elemenata direktno odgovara pečevima na koje je ulazna slika 
 podeljena, pri čemu svaki peč dobija jedinstvenu skalarnu težinu. Mapa se zatim 
 reorganizuje u mrežu dimenzija $\frac{H}{P} \times \frac{W}{P}$ i skalira bilinearnom 
 interpolacijom na originalnu rezoluciju. Rezolucija je dakle inherentno ograničena 
@@ -178,10 +177,9 @@ Drugo, relevantnost svakog pojedinačnog čvora dobija se potpunom raspodelom vr
 \begin{equation}
     R_j^{(l)} = \sum_i R_{j \leftarrow i}^{(l, l+1)} \quad \text{uz uslov} \quad R_i^{(l+1)} = \sum_j R_{j \leftarrow i}^{(l, l+1)}
 \end{equation}
-
 gde $R_{j \leftarrow i}^{(l, l+1)}$ označava količinu relevantnosti koju čvor $i$ iz višeg sloja $l+1$ prosleđuje čvoru $j$ u nižem sloju $l$. Intuitivno, relevantnost se ponaša u skladu sa zakonom održanja — ona se ne stvara i ne gubi, već se isključivo redistribuira sa izlaznih prema ulaznim slojevima mreže.
 
-Propagacija se inicijalizuje na poslednjem izlaznom sloju $L$ pre aktivacione funkcije Softmax. Za izabranu ciljnu klasu $c$, početna relevantnost se postavlja na vrednost mrežne aktivacije $f_c(\mathbf{x})$, dok se za sve ostale klase postavlja nula:
+Propagacija se inicijalizuje na poslednjem izlaznom sloju $L$ pre aktivacione funkcije softmax. Za izabranu ciljnu klasu $c$, početna relevantnost se postavlja na vrednost mrežne aktivacije $f_c(\mathbf{x})$, dok se za sve ostale klase postavlja nula:
 
 \begin{equation}
     R_k^{(L)} = 
@@ -215,7 +213,6 @@ Doprinos ulaznog neurona $j$ ovoj aproksimaciji definiše se kao njegova relevan
     {\sum_k u_k \frac{\partial L(\mathbf{u}, \mathbf{v})}{\partial u_k}} R_i
     \label{eq:deep_taylor}
 \end{equation}
-
 pri čemu je uzeto $\tilde{u}_j = 0$ kao prirodan izbor korene tačke, što 
 odgovara pretpostavci da neuron bez ulaznog signala ne doprinosi izlazu. 
 Detaljano izvodjenje dato je u Dodatku \ref{appendix:deep_taylor}.
@@ -262,9 +259,7 @@ se pozitivnost definiše na osnovu predznaka samog proizvoda:
 \begin{equation}
     z_{ji}^+ = \max(0, x_j w_{ji})
 \end{equation}
-
 a pravilo propagacije postaje:
-
 \begin{equation}
     R_j^{(l)} = \sum_i \frac{z_{ji}^+}{\sum_{j'} z_{j'i}^+} R_i^{(l+1)}
     \label{eq:zplus}
@@ -288,14 +283,13 @@ ViT arhitektura sadrži dva tipa neparametarskih operacija koje zahtevaju poseba
     R_j^{\mathbf{v}} = \frac{v_j}{u_j + v_j} R_j^{\mathbf{z}}
 \end{equation}
 
-Iako sabiranje po definiciji očuvava relevantnost (dokaz u Dodatku \ref{appendix:addition}), ono unosi rizik od numeričke nestabilnosti. Ukoliko se komponente ulaza međusobno poništavaju ($u_j + v_j \approx 0$), imenilac teži nuli, što dovodi do deljenje vrednošću bliskom nuli i nekontrolisane eksplozije relevantnosti.
+Iako sabiranje po definiciji čuva relevantnost (dokaz u Dodatku \ref{appendix:addition}), ono unosi rizik od numeričke nestabilnosti. Ukoliko se komponente ulaza međusobno poništavaju ($u_j + v_j \approx 0$), imenilac teži nuli, što dovodi do deljenje vrednošću bliskom nuli i nekontrolisane eksplozije relevantnosti.
 
 \paragraph{Množenje.} Za matrično množenje $\mathbf{Z} = \mathbf{U}\mathbf{V}$, primenom DTD formule na oba ulazna toka dolazi do dupliranja ukupne relevantnosti na ulazu:
 
 \begin{equation}
     \sum_{i,k} R_{ik}^{\mathbf{U}} + \sum_{k,j} R_{kj}^{\mathbf{V}} = 2 \sum_{i,j} R_{ij}^{\mathbf{Z}}
 \end{equation}
-
 što direktno narušava aksiom konzervacije (dokaz u Dodatku \ref{appendix:multiplication}).
 
 \paragraph{Normalizacija relevantnosti.} Kako bi se istovremeno prevazišao problem numeričke nestabilnosti kod sabiranja i narušavanje konzervacije kod množenja, uvodi se postupak stabilizacije i normalizacije relevantnosti \cite{chefer2021transformer}. Za bilo koju binarnu neparametarsku operaciju sa ulaznim tenzorima relevantnosti $\mathbf{R}^{\mathbf{A}}$ i $\mathbf{R}^{\mathbf{B}}$, normalizovana vrednost $\hat{\mathbf{R}}^{\mathbf{A}}$ definiše se kao:
@@ -307,7 +301,7 @@ Iako sabiranje po definiciji očuvava relevantnost (dokaz u Dodatku \ref{appendi
 
 Ovim izrazom se vrši preraspodela srazmerno doprinosima pojedinačnih ulaza. Primenom apsolutnih vrednosti u imeniocu drugog člana sprečava se deljenje vrednošću bliskom nuli kod sabiranja, čime se vrednost relevantnosti zadržava u zadatom okviru $0 \leq \hat{R}_i^{\mathbf{A}} \leq \sum_j R_j^{\text{izlaz}}$. Istovremeno, skaliranje trećim članom poništava višak relevantnosti nastao množenjem i uspostavlja striktnu konzervaciju (dokaz u Dodatku \ref{appendix:normalization}).
 
-\paragraph{Softmax i LayerNorm.} Za slojeve poput Softmax i Layer Normalization, relevantnost se propagira nepromenjeno. Ovi slojevi se u LRP propagaciji tretiraju kao identičko preslikavanje (\textit{identity mapping}) \cite{chefer2021transformer}.
+\paragraph{Softmax i Layer Normalization} Za slojeve poput softmax i layer normalization, relevantnost se propagira nepromenjeno. Ovi slojevi se u LRP propagaciji tretiraju kao identičko preslikavanje (\textit{identity mapping}) \cite{chefer2021transformer}.
 
 \subsection{Metode zasnovane na mehanizmu pažnje}
 
@@ -372,12 +366,11 @@ usrednjavanje matrica pažnje po svim komponentama pre množenja:
     \mathbf{A}^{(l)} = \frac{1}{h} \sum_{h'=1}^{h} \mathbf{A}^{(l,h')}
 \end{equation}
 
-Međutim, kako različite glave pažnje specijalizuju se za različite vrste 
+Međutim, kako se različite komponente pažnje specijalizuju za različite vrste 
 zavisnosti \cite{voita2019analyzing}, jednostavnim usrednjavanjem gube se 
-ove specijalizovane informacije i sve glave se tretiraju kao podjednako 
-informativne.
+ove specijalizovane informacije i sve komponente se tretiraju kao podjednako informativne.
 
-Pored toga, Attention Rollout je osetljiv na problem zagušenja 
+Pored toga, Attention Rollout je osetljiv na problem zasićenja 
 pažnje (\textit{attention saturation}) — ukoliko jedan token dominira 
 matricom pažnje sa izrazito velikom težinom, ova neravnomernost se 
 eksponencijalno pojačava množenjem kroz slojeve, što rezultuje mapama 
@@ -389,7 +382,7 @@ ograničenje za primenu u interpretabilnosti i direktno motiviše metode opisane
 
 \subsubsection{Propagacija relevantnosti kroz mehanizam pažnje \textit{(Transformer Attribution)}}
 
-Iako Attention Rollout predstavlja unapređenje u odnosu na sirove mape pažnje, on i dalje koristi same težine pažnje kao aproksimaciju važnosti tokena. Chefer i saradnici \cite{chefer2021transformer} pokazuju da pažnja sama po sebi nije pouzdana mera relevantnosti, jer opisuje koliko jedan token “gleda” drugi, ali ne i koliko taj odnos doprinosi konačnoj odluci modela, zato uvode propagaciju relevantnosti kroz pažnju pomoću LRP-a, uz signal specifičan za ciljnu klasu.
+Iako Attention Rollout predstavlja unapređenje u odnosu na sirove mape pažnje, on i dalje koristi same težine pažnje kao aproksimaciju važnosti tokena. Chefer i saradnici \cite{chefer2021transformer} pokazuju da pažnja sama po sebi nije pouzdana mera relevantnosti, jer opisuje koliko jedan token “gleda” drugi, ali ne i koliko taj odnos doprinosi konačnoj odluci modela, zato uvode propagaciju relevantnosti kroz pažnju pomoću metode LRP, uz signal specifičan za ciljnu klasu.
 
 U osnovnoj varijanti metode, umesto matrica pažnje $\mathbf{A}^{(l)}$ koriste 
 se njihove relevantnosti $\mathbf{R}_A^{(l)}$ dobijene LRP propagacijom, pri 
@@ -405,7 +398,6 @@ nalik na Attention Rollout, ali zasnovana na relevantnostima umesto na sirovim t
     \mathbf{C} = \hat{\mathbf{R}}_A^{(1)} \cdot \hat{\mathbf{R}}_A^{(2)} 
     \cdots \hat{\mathbf{R}}_A^{(B)}
 \end{equation}
-
 gde $\mathbb{E}_h$ označava usrednjavanje po komponentama pažnje, $(\cdot)^+$ 
 zadržava samo pozitivne vrednosti u skladu sa $z^+$-pravilom, a dodavanje 
 jedinične matrice $\mathbf{I}$ modeluje rezidualne veze.
@@ -429,7 +421,7 @@ jedinici:
     {\sum_j \bar{A}^{(l)}_{ij}}
 \end{equation}
 
-Na ovaj način se očuvava konzervacija relevantnosti kroz slojeve, u skladu sa LRP principom. Bez normalizacije, slojevi sa većim gradijentnim doprinosom mogli bi nesrazmerno da dominiraju pri matričnom množenju kroz blokove, što bi narušilo ravnotežu propagacije.
+Na ovaj način se čuva konzervacija relevantnosti kroz slojeve, u skladu sa LRP principom. Bez normalizacije, slojevi sa većim gradijentnim doprinosom mogli bi nesrazmerno da dominiraju pri matričnom množenju kroz blokove, što bi narušilo ravnotežu propagacije.
 
 
 Nakon normalizacije, konačna mapa relevantnosti dobija se propagacijom kroz 

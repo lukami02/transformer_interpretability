@@ -63,7 +63,7 @@ pažnje. Ipak, ovaj fenomen nije potpuno eliminisan jer model tokom treninga nij
 obučavan na slikama sa isključenim tokenima. 
 
 U cilju smanjenja uticaja šuma koji 
-nastaje usled ekstremne perturbacije ulaza, u ovom radu se pored standardnog AUC-a 
+nastaje usled ekstremne perturbacije ulaza, u ovom radu se pored standardne AUC metrike
 analizira i delimični AUC ograničen na prvih $30\%$ uklonjenih pečeva, čime se 
 evaluacija fokusira isključivo na najkritičnije regione slike.
 
@@ -119,7 +119,6 @@ i ne zahteva pretpostavku o normalnosti raspodele:
 \begin{equation}
     \rho = 1 - \frac{6 \sum_i d_i^2}{n(n^2-1)}
 \end{equation}
-
 gde $d_i$ predstavlja razliku rangova odgovarajućih elemenata (piksela ili pečeva) u dvema mapama značajnosti, 
 dok je $n$ ukupan broj elemenata u mapi. Rezultati se prikazuju u formi matrice korelacije 
 za sve parove metoda, usrednjene po celom evaluacionom skupu.
@@ -136,7 +135,7 @@ funkcionisanjem \textit{Transformer} modela.
 \textit{positional embeddings} se dodaju samo na početku mreže i 
 predstavljaju jedini izvor prostorne informacije za model. Poznato je da 
 ViT modeli mogu uspešno klasifikovati slike čak i kada su pečevi 
-nasumično premešani \cite{dosovitskiy2021vit}, što sugeriše da model 
+nasumično izmešani \cite{dosovitskiy2021vit}, što sugeriše da model 
 donosi odluku primarno na osnovu semantičkog sadržaja samih pečeva, a ne njihovog prostornog 
 rasporeda. Ovaj test ispituje u kojoj meri se taj fenomen odražava na mape značajnosti. 
 U okviru testa, nasumično se permutuju svi pečevi ulazne slike, generiše se nova mapa 
@@ -151,7 +150,7 @@ jer ih model ne prepoznaje kao deo poznatog vizuelnog koncepta. Ovaj
 test ispituje navedenu hipotezu — na fiksnu poziciju unutar slike dodaje se peč sa 
 slučajnim Gausovim šumom, koji je po definiciji van distribucije, 
 nakon čega se meri Spirmanova korelacija mapa značajnosti pre i posle ove modifikacije. 
-Značajan pad korelacije ukazuje na to da metoda interpretabilnosti nije robusna na prisustvo 
+Niska korelacija ukazuje na to da metoda interpretabilnosti nije robusna na prisustvo 
 šuma van distribucije, odnosno da se mapa značajnosti dramatično menja iako je sadržaj 
 originalnih, relevantnih delova slike ostao netaknut. Posebno je interesantno ispitati 
 razliku u robusnosti između metoda koje direktno propagiraju težine pažnje, poput 
@@ -166,8 +165,7 @@ Radi kvalitativne analize, mape značajnosti prikazane su za tri grupe
 primera koje pokrivaju različite scenarije od jednostavnih do složenih.
 
 \paragraph{Jednostavni primeri.} Prva grupa (slika \ref{fig:good_examples}) 
-obuhvata slike sa jasno istaknutim objektom — brod na moru i kraba sa 
-karakterističnim kliještima. Na ovim primerima gotovo sve metode uspešno 
+obuhvata slike sa jasno istaknutim objektom — brod na otvorenom moru i krabu koja se ističe svojim karakterističnim kleštima. Na ovim primerima gotovo sve metode uspešno 
 lokalizuju objekat od interesa, ali sa uočljivim razlikama u kvalitetu 
 mapa. Attention Rollout pokazuje karakteristične artefakte rasute pažnje, 
 dok gradijentne metode (Vanilla Gradient, Input $\times$ Gradient, GradCAM) 
@@ -178,9 +176,8 @@ rezultate sa mapama koje precizno pokrivaju objekat od interesa.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.75\textwidth]{figures/eval/good_examples.jpg}
-    \caption{Primeri sa jasno istaknutim objektom (brod na moru, kraba 
-    sa kliještima). Za svaku sliku prikazana je originalna slika (levo) 
+    \includegraphics[width=0.75\textwidth]{figures/eval/good_examples2.jpg}
+    \caption{Primeri sa jasno istaknutim objektom (brod na moru, kraba sa kleštima). Za svaku sliku prikazana je originalna slika (levo) 
     i mape značajnosti u formatu $3 \times 3$ (desno).}
     \label{fig:good_examples}
 \end{figure}
@@ -197,7 +194,7 @@ Attribution daje najkoherentnije rezultate kod šipke koja se utapa u pozadinu.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\textwidth]{figures/eval/bad_examples.jpg}
+    \includegraphics[width=0.75\textwidth]{figures/eval/bad_examples2.jpg}
     \caption{Složeni primeri: mnoštvo instanci objekta (roj pčela), 
     veliki objekat bez prepoznatljive teksture (monitor) i objekat koji 
     se utapa u pozadinu (šipka za dizanje tegova). Prikazane su originalna 
@@ -209,7 +206,7 @@ Attribution daje najkoherentnije rezultate kod šipke koja se utapa u pozadinu.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.48\textwidth]{figures/eval/class_agnostic.jpg}
+    \includegraphics[width=0.48\textwidth]{figures/eval/class_agnostic2.png}
     \caption{Analiza klasne diskriminativnost: slika sa dve različite klase (flandrijski govedar i haski) i sintetička slika tela zlatnog retrivera sa glavom mačke. Mape su generisane za svaku klasu zasebno.}
     \label{fig:class_agnostic}
 \end{figure}
@@ -278,7 +275,7 @@ sposobnost razlikovanja važnih od nevažnih regiona.}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.9\textwidth]{figures/eval/morf_lerf.png}
+    \includegraphics[width=0.9\textwidth]{figures/eval/morf_lerf_bw.png}
     \caption{MoRF i LeRF krive za sve evaluirane metode. Na svakom 
     grafikonu prikazana je zavisnost tačnosti modela od udela uklonjenih 
     pečeva, sa standardnom devijacijom. Strmiji pad MoRF krive i sporiji 
@@ -330,7 +327,7 @@ Kernel SHAP postiže svega $62.6\%$, što potvrdjuje da formalne aksiomatske gar
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/eval/spearman_correlation.png}
+    \includegraphics[width=0.8\textwidth]{figures/eval/spearman_correlation_bw.png}
     \caption{Matrica Spirmanove korelacije između mapa značajnosti 
     svih parova metoda, usrednjena po validacionom skupu.}
     \label{fig:spearman_matrix}
@@ -455,7 +452,7 @@ Transformer Attribution postiže odlične ukupne rezultate — drugi najbolji
 \textit{Pointing Game} ($84.4\%$) i drugu najveću razliku LeRF $-$ MoRF 
 ($0.334$) — ali po cenu skoro četiri puta dužeg vremena izvršavanja u 
 odnosu na GMAR ($212.27$ ms). Mape koje ova metoda generiše su vizuelno 
-najčišće i semantički najkoherentnije. Stoga, ukoliko je vreme izvršavanja 
+najčistije i semantički najkoherentnije. Stoga, ukoliko je vreme izvršavanja 
 kritičan faktor, GMAR predstavlja prirodan izbor, dok Transformer 
 Attribution dolazi do izražaja kada je kvalitet mapa primarni cilj.
 
